@@ -45,6 +45,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('home');
   const [feedSubTab, setFeedSubTab] = useState('foryou');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [activeCommentReel, setActiveCommentReel] = useState(null);
   const [reelComments, setReelComments] = useState([]);
@@ -108,14 +109,16 @@ export default function App() {
 
   const loadFeed = async () => {
     setFeedLoading(true);
-    const [feedData, liked, follows] = await Promise.all([
+    const [feedData, liked, follows, notifs] = await Promise.all([
       getFeedReels(),
       getLikedReelIds(authUser?.id),
-      getFollowingIds(authUser?.id)
+      getFollowingIds(authUser?.id),
+      authUser && !isGuest ? getNotifications(authUser.id) : Promise.resolve([])
     ]);
     setReels(feedData);
     setLikedIds(new Set(liked));
     setFollowingIds(new Set(follows));
+    if (notifs) setNotifications(notifs);
     setFeedLoading(false);
   };
 
@@ -431,36 +434,103 @@ export default function App() {
     )}
 
       {/* ── Discover ── */}
-      {activeTab === 'discover' && (
-        <div style={{ flex: 1, padding: '20px', overflowY: 'auto', background: '#09090b' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.08)', borderRadius: '24px', padding: '10px 16px', marginBottom: '20px' }}>
-            <Search size={18} color="#94a3b8" />
-            <input type="text" placeholder="Search reels, #Nepal, friends..." style={{ background: 'none', border: 'none', color: '#fff', fontSize: '14px', flex: 1, outline: 'none' }} />
-          </div>
-          <div style={{ fontSize: '16px', fontWeight: '800', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Flame color="#f59e0b" size={20} /> Trending Hashtags
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '24px' }}>
-            {['#Nepal', '#Kathmandu', '#Pokhara', '#Momo', '#Dashain', '#Himalayas', '#VibeReels'].map((tag) => (
-              <div key={tag} style={{ padding: '8px 16px', borderRadius: '20px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', fontSize: '13px', fontWeight: '700', color: '#38bdf8' }}>{tag}</div>
-            ))}
-          </div>
-          <div style={{ fontSize: '16px', fontWeight: '800', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Sparkles color="#e11d48" size={20} /> All Reels
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
-            {reelsWithLiked.map((reel) => (
-              <div key={reel.id} onClick={() => setActiveTab('home')} style={{ position: 'relative', aspectRatio: '9/16', background: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer' }}>
-                <video src={reel.video_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
-                <div style={{ position: 'absolute', bottom: '6px', left: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.9)', pointerEvents: 'none' }}>
-                  <Play size={12} fill="#fff" color="#fff" />
-                  <span>{reel.views_count || 0}</span>
-                </div>
+      {activeTab === 'discover' && (() => {
+        const filteredReels = reelsWithLiked.filter((r) => {
+          if (!searchQuery.trim()) return true;
+          const q = searchQuery.toLowerCase();
+          const caption = (r.caption || '').toLowerCase();
+          const username = (r.profiles?.username || r.user?.username || '').toLowerCase();
+          const song = (r.song || '').toLowerCase();
+          const tags = (r.hashtags || []).join(' ').toLowerCase();
+          return caption.includes(q) || username.includes(q) || song.includes(q) || tags.includes(q);
+        });
+
+        return (
+          <div style={{ flex: 1, padding: '20px', overflowY: 'auto', background: '#09090b' }}>
+            {/* Search Input Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.08)', border: searchQuery ? '1px solid rgba(225,29,72,0.5)' : '1px solid rgba(255,255,255,0.12)', borderRadius: '24px', padding: '10px 16px', marginBottom: '20px', transition: 'all 0.2s' }}>
+              <Search size={18} color={searchQuery ? '#e11d48' : '#94a3b8'} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search reels, #Nepal, creator username..."
+                style={{ background: 'none', border: 'none', color: '#fff', fontSize: '14px', flex: 1, outline: 'none' }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0 }}>
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            {/* Trending Hashtags */}
+            <div style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Flame color="#f59e0b" size={18} /> Trending Hashtags
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
+              {['#Nepal', '#Kathmandu', '#Pokhara', '#Momo', '#Dashain', '#Himalayas', '#VibeReels'].map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setSearchQuery(searchQuery === tag ? '' : tag)}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '20px',
+                    background: searchQuery === tag ? 'rgba(225, 29, 72, 0.25)' : 'rgba(255,255,255,0.06)',
+                    border: searchQuery === tag ? '1px solid var(--primary-nepal)' : '1px solid rgba(255,255,255,0.12)',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    color: searchQuery === tag ? '#e11d48' : '#38bdf8',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+
+            {/* All Reels Grid */}
+            <div style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sparkles color="#e11d48" size={18} /> {searchQuery ? `Search Results (${filteredReels.length})` : 'All Reels'}
               </div>
-            ))}
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', color: '#e11d48', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>
+                  Clear Search
+                </button>
+              )}
+            </div>
+
+            {filteredReels.length === 0 ? (
+              <div style={{ textAlign: 'center', color: '#94a3b8', padding: '40px 0', fontSize: '14px' }}>
+                No reels found matching "{searchQuery}". Try searching another keyword! 🔍
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                {filteredReels.map((reel) => (
+                  <div
+                    key={reel.id}
+                    onClick={() => {
+                      // Move selected reel to top of feed and switch to home tab
+                      setReels((prev) => [reel, ...prev.filter((r) => r.id !== reel.id)]);
+                      setActiveTab('home');
+                    }}
+                    style={{ position: 'relative', aspectRatio: '9/16', background: '#121215', borderRadius: '10px', overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    <video src={reel.video_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)', pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', bottom: '6px', left: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.9)', pointerEvents: 'none' }}>
+                      <Play size={11} fill="#fff" color="#fff" />
+                      <span>{reel.views_count || 0}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Inbox (Notifications) ── */}
       {activeTab === 'inbox' && (
@@ -556,7 +626,7 @@ export default function App() {
 
       {/* ── Settings (Full Page) ── */}
       {activeTab === 'settings' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', animation: 'pageSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
+        <div style={{ flex: 1, height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'pageSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
           <SettingsScreen
             user={profile || authUser}
             onBack={() => setActiveTab('profile')}
@@ -572,6 +642,7 @@ export default function App() {
           activeTab={activeTab}
           onTabChange={(tab) => { setSelectedUser(null); setActiveTab(tab); }}
           onOpenUpload={handleOpenUpload}
+          unreadNotifCount={notifications.length}
         />
       )}
 

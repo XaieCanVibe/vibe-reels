@@ -105,7 +105,7 @@ export const SettingsScreen = ({ user, onBack, onSignOut, onEditProfile }) => {
 
   // ── Main Full Page Settings (Executive White Theme with Official Vector Badges) ──
   return (
-    <div style={{ flex: 1, overflowY: 'auto', background: '#f8fafc', color: '#0f172a', padding: '20px' }}>
+    <div style={{ flex: 1, height: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch', background: '#f8fafc', color: '#0f172a', padding: '20px' }}>
       
       {/* Top Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>

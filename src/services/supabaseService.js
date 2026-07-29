@@ -163,6 +163,10 @@ export const unlikeReel = async (userId, reelId) => {
   if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) return;
   await supabase.from('likes').delete().match({ user_id: userId, reel_id: reelId });
   await supabase.rpc('decrement_likes', { reel_id: reelId });
+  // Remove corresponding notification if unliked
+  try {
+    await supabase.from('notifications').delete().match({ actor_id: userId, reel_id: reelId, type: 'like' });
+  } catch (_) {}
 };
 
 // ─── COMMENTS ────────────────────────────────────────────────────────────────
@@ -237,6 +241,13 @@ export const getFollowingIds = async (followerId) => {
 export const createNotification = async (userId, actorId, type, reelId = null) => {
   if (!isSupabaseConfigured || !userId || !actorId || userId === actorId || actorId.startsWith('guest-')) return;
   try {
+    let query = supabase.from('notifications').select('id').eq('user_id', userId).eq('actor_id', actorId).eq('type', type);
+    if (reelId) query = query.eq('reel_id', reelId);
+    const { data: existing } = await query;
+    if (existing && existing.length > 0) {
+      await supabase.from('notifications').update({ created_at: new Date().toISOString() }).eq('id', existing[0].id);
+      return;
+    }
     await supabase.from('notifications').insert({
       user_id: userId,
       actor_id: actorId,

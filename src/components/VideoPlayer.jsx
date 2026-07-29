@@ -4,6 +4,7 @@ import { Play, Heart } from 'lucide-react';
 export const VideoPlayer = ({ video, isActive, onLike }) => {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(true);
   const [progress, setProgress] = useState(0);
   const [floatingHearts, setFloatingHearts] = useState([]);
   
@@ -11,19 +12,25 @@ export const VideoPlayer = ({ video, isActive, onLike }) => {
 
   useEffect(() => {
     if (isActive && videoRef.current) {
+      setIsBuffering(true);
       // Ensure sound is enabled (unmuted)
       videoRef.current.muted = false;
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
         playPromise
-          .then(() => setIsPlaying(true))
+          .then(() => {
+            setIsPlaying(true);
+            setIsBuffering(false);
+          })
           .catch((err) => {
             console.log('Autoplay unmuted blocked by browser policy, attempting muted fallback:', err);
-            // If browser blocks unmuted autoplay without user interaction:
             if (videoRef.current) {
               videoRef.current.muted = true;
               videoRef.current.play()
-                .then(() => setIsPlaying(true))
+                .then(() => {
+                  setIsPlaying(true);
+                  setIsBuffering(false);
+                })
                 .catch(() => setIsPlaying(false));
             }
           });
@@ -46,13 +53,11 @@ export const VideoPlayer = ({ video, isActive, onLike }) => {
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
 
-    // Unmute video explicitly on click if browser muted it earlier
     if (videoRef.current && videoRef.current.muted) {
       videoRef.current.muted = false;
     }
 
     if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-      // Double tap -> Trigger Heart animation & Like
       const rect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
@@ -67,7 +72,6 @@ export const VideoPlayer = ({ video, isActive, onLike }) => {
         onLike(video.id);
       }
     } else {
-      // Single tap -> Toggle Play / Pause
       if (videoRef.current) {
         if (isPlaying) {
           videoRef.current.pause();
@@ -92,6 +96,10 @@ export const VideoPlayer = ({ video, isActive, onLike }) => {
         playsInline
         muted={false}
         onTimeUpdate={handleTimeUpdate}
+        onWaiting={() => setIsBuffering(true)}
+        onPlaying={() => { setIsBuffering(false); setIsPlaying(true); }}
+        onCanPlay={() => setIsBuffering(false)}
+        onLoadedData={() => setIsBuffering(false)}
       />
 
       {/* Floating Hearts on Double Tap */}
@@ -105,8 +113,34 @@ export const VideoPlayer = ({ video, isActive, onLike }) => {
         </div>
       ))}
 
-      {/* Single Tap Play Indicator */}
-      {!isPlaying && (
+      {/* Video Buffering / Loading Spinner */}
+      {isBuffering && isActive && (
+        <div className="play-pause-indicator" style={{ pointerEvents: 'none' }}>
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '2px solid rgba(255,255,255,0.15)'
+          }}>
+            <div style={{
+              width: '24px',
+              height: '24px',
+              border: '3px solid rgba(255,255,255,0.3)',
+              borderTopColor: '#e11d48',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite'
+            }} />
+          </div>
+        </div>
+      )}
+
+      {/* Single Tap Play Indicator (only if not buffering and paused) */}
+      {!isPlaying && !isBuffering && (
         <div className="play-pause-indicator">
           <div className="play-icon-glow">
             <Play size={36} fill="#ffffff" style={{ marginLeft: '4px' }} />
