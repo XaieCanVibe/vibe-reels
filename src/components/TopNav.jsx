@@ -3,8 +3,33 @@ import React from 'react';
 export const TopNav = ({ activeFeedTab, onFeedTabChange }) => {
   return (
     <div className="top-nav">
-      <div className="nepal-badge">
-        <span>🇳🇵</span> Ramailo
+      {/* Sleek VibeReels Logo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div style={{
+          width: '26px',
+          height: '26px',
+          borderRadius: '8px',
+          background: 'linear-gradient(135deg, #e11d48, #fb923c)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: '900',
+          fontSize: '14px',
+          color: '#fff',
+          fontFamily: 'Outfit, sans-serif'
+        }}>
+          V
+        </div>
+        <span style={{
+          fontFamily: 'Outfit, sans-serif',
+          fontWeight: '800',
+          fontSize: '16px',
+          background: 'linear-gradient(135deg, #ffffff, #cbd5e1)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent'
+        }}>
+          VibeReels
+        </span>
       </div>
 
       <div className="top-tabs">
@@ -22,7 +47,7 @@ export const TopNav = ({ activeFeedTab, onFeedTabChange }) => {
         </span>
       </div>
 
-      <div style={{ width: '60px' }} /> {/* Spacer for balance */}
+      <div style={{ width: '40px' }} /> {/* Spacer */}
     </div>
   );
 };

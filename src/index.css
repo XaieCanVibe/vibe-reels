@@ -39,7 +39,7 @@ html, body {
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #000000;
+  background: radial-gradient(circle at center, #1e1e24 0%, #09090b 100%);
 }
 
 /* App Phone Container Frame for Desktop & Native View on Mobile */
@@ -91,7 +91,8 @@ html, body {
 .video-element {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background-color: #000000;
   display: block;
 }
 

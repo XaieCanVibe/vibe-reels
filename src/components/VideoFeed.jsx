@@ -58,7 +58,7 @@ export const VideoFeed = ({
                   onClick={() => onSelectUser && onSelectUser(creator)}
                 >
                   <span>{creator.name || creator.username}</span>
-                  <CheckCircle2 size={15} color="#38bdf8" fill="#0284c7" />
+                  {creator.is_verified && <CheckCircle2 size={15} color="#38bdf8" fill="#0284c7" />}
                   <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginLeft: '4px' }}>
                     @{creator.username}
                   </span>

@@ -20,7 +20,7 @@ import {
   addComment as supabaseAddComment,
   uploadReel
 } from './services/supabaseService';
-import { Compass, MessageSquare, Sparkles, Flame, Search, LogOut, Loader2, WifiOff } from 'lucide-react';
+import { Compass, MessageSquare, Sparkles, Flame, Search, LogOut, Loader2, WifiOff, Lock, X } from 'lucide-react';
 
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
@@ -39,6 +39,7 @@ export default function App() {
   const [activeShareReel, setActiveShareReel] = useState(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [guestUploadNotice, setGuestUploadNotice] = useState(false);
 
   // ── AUTH LISTENER ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -51,7 +52,7 @@ export default function App() {
         setAuthUser(session.user);
         const p = await getProfile(session.user.id);
         setProfile(p);
-      } else {
+      } else if (!authUser?.isGuest) {
         setAuthUser(null);
         setProfile(null);
       }
@@ -84,7 +85,7 @@ export default function App() {
     const newLikedIds = new Set(likedIds);
     setReels((prev) => prev.map((r) =>
       r.id === reelId
-        ? { ...r, likes_count: r.likes_count + (alreadyLiked ? -1 : 1) }
+        ? { ...r, likes_count: (r.likes_count || 0) + (alreadyLiked ? -1 : 1) }
         : r
     ));
     if (alreadyLiked) {
@@ -110,12 +111,20 @@ export default function App() {
     if (!error && data) {
       setReelComments((prev) => [data, ...prev]);
       setReels((prev) => prev.map((r) =>
-        r.id === reelId ? { ...r, comments_count: r.comments_count + 1 } : r
+        r.id === reelId ? { ...r, comments_count: (r.comments_count || 0) + 1 } : r
       ));
     }
   };
 
-  // ── UPLOAD ───────────────────────────────────────────────────────────────────
+  // ── UPLOAD GUARD ─────────────────────────────────────────────────────────────
+  const handleOpenUpload = () => {
+    if (authUser?.isGuest || authUser?.id?.toString().startsWith('guest-')) {
+      setGuestUploadNotice(true);
+    } else {
+      setIsUploadOpen(true);
+    }
+  };
+
   const handleUploadSuccess = async (file, metadata) => {
     setIsUploadOpen(false);
     const { data, error } = await uploadReel(authUser.id, file, metadata);
@@ -155,8 +164,6 @@ export default function App() {
             To use real accounts, videos, and data you need to set up your free Supabase backend.
             <br /><br />
             Add your Supabase URL and anon key to <code style={{ color: '#e11d48' }}>.env</code> file.
-            <br /><br />
-            See <strong>HOSTING_AND_DEPLOYMENT_GUIDE.md</strong> for step-by-step instructions.
           </div>
         </div>
       </div>
@@ -169,7 +176,7 @@ export default function App() {
       <div className="app-container">
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px' }}>
           <Loader2 size={36} color="#e11d48" style={{ animation: 'spin 1s linear infinite' }} />
-          <div style={{ color: '#64748b', fontSize: '14px' }}>Loading Vibe Reels...</div>
+          <div style={{ color: '#64748b', fontSize: '14px' }}>Loading VibeReels...</div>
         </div>
       </div>
     );
@@ -179,7 +186,10 @@ export default function App() {
   if (!authUser) {
     return (
       <div className="app-container">
-        <AuthScreen onAuthSuccess={(user) => setAuthUser(user)} />
+        <AuthScreen onAuthSuccess={(user) => {
+          setAuthUser(user);
+          if (user.isGuest) setProfile(user);
+        }} />
       </div>
     );
   }
@@ -243,10 +253,10 @@ export default function App() {
           <div style={{ fontSize: '16px', fontWeight: '800', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Sparkles color="#e11d48" size={20} /> All Reels
           </div>
-          <div className="profile-grid">
+          <div className="profile-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
             {reelsWithLiked.map((reel) => (
-              <div key={reel.id} className="grid-item" onClick={() => setActiveTab('home')}>
-                <video src={reel.video_url} className="grid-thumbnail" muted playsInline />
+              <div key={reel.id} className="grid-item" onClick={() => setActiveTab('home')} style={{ aspectRatio: '9/16', background: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer' }}>
+                <video src={reel.video_url} className="grid-thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
               </div>
             ))}
           </div>
@@ -279,7 +289,7 @@ export default function App() {
       <BottomNav
         activeTab={activeTab}
         onTabChange={(tab) => { setSelectedUser(null); setActiveTab(tab); }}
-        onOpenUpload={() => setIsUploadOpen(true)}
+        onOpenUpload={handleOpenUpload}
       />
 
       {/* Modals */}
@@ -299,6 +309,35 @@ export default function App() {
           onClose={() => setIsUploadOpen(false)}
           onUploadSuccess={handleUploadSuccess}
         />
+      )}
+
+      {/* Guest Upload Restriction Modal */}
+      {guestUploadNotice && (
+        <div className="modal-overlay" onClick={() => setGuestUploadNotice(false)}>
+          <div className="bottom-sheet" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', padding: '24px', maxWidth: '380px', borderRadius: '24px' }}>
+            <div style={{ fontSize: '48px', marginBottom: '8px' }}>🚫</div>
+            <div style={{ fontFamily: 'Outfit, sans-serif', fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '8px' }}>
+              Guests Cannot Upload Videos
+            </div>
+            <div style={{ color: '#94a3b8', fontSize: '13px', lineHeight: 1.5, marginBottom: '20px' }}>
+              Guest accounts can watch, like, and comment on reels, but uploading is reserved for registered accounts. Please log in or create a free account to upload reels!
+            </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setGuestUploadNotice(false)}
+                style={{ flex: 1, background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: '600', cursor: 'pointer' }}
+              >
+                Close
+              </button>
+              <button
+                onClick={() => { setGuestUploadNotice(false); handleSignOut(); }}
+                style={{ flex: 1, background: 'linear-gradient(135deg, #e11d48, #be123c)', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                🔑 Log In / Register
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

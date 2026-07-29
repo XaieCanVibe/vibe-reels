@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { signIn, signUp, signInAnonymously } from '../services/supabaseService';
-import { Eye, EyeOff, User, Lock, Mail, Loader2, UserCheck, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, User, Lock, Mail, Loader2, Sparkles, X, ArrowRight } from 'lucide-react';
 
 export const AuthScreen = ({ onAuthSuccess }) => {
   const [mode, setMode] = useState('login'); // 'login' | 'signup'
@@ -14,6 +14,17 @@ export const AuthScreen = ({ onAuthSuccess }) => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
+  // Guest Nickname Modal state
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestNickname, setGuestNickname] = useState('');
+
+  const openGuestModal = () => {
+    // Generate default Guest_XXXX
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    setGuestNickname(`Guest_${randomNum}`);
+    setShowGuestModal(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -24,7 +35,7 @@ export const AuthScreen = ({ onAuthSuccess }) => {
       const { data, error } = await signIn(email, password);
       if (error) {
         if (error.message?.includes('Email not confirmed')) {
-          setError('⚠️ Email not confirmed. Please check your inbox OR ask admin to disable "Confirm email" in Supabase settings!');
+          setError('⚠️ Email not confirmed. Ask admin to disable "Confirm email" in Supabase settings or confirm your email!');
         } else {
           setError(error.message || 'Login failed. Check your email and password.');
         }
@@ -42,10 +53,9 @@ export const AuthScreen = ({ onAuthSuccess }) => {
         setError(error.message || 'Sign up failed.');
       } else {
         if (data.session) {
-          // Direct login without confirmation required
           onAuthSuccess(data.user);
         } else {
-          setMessage('🎉 Account created! You can now log in (if email confirmation is disabled in Supabase).');
+          setMessage('🎉 Account created! You can now log in.');
           setMode('login');
         }
       }
@@ -53,10 +63,22 @@ export const AuthScreen = ({ onAuthSuccess }) => {
     setLoading(false);
   };
 
-  const handleGuestLogin = async () => {
+  const handleGuestSubmit = async (e) => {
+    e.preventDefault();
+    const finalNickname = guestNickname.trim() || `Guest_${Math.floor(1000 + Math.random() * 9000)}`;
     setGuestLoading(true);
-    const { user } = await signInAnonymously();
-    onAuthSuccess(user);
+    const guestUser = {
+      id: 'guest-' + Math.random().toString(36).substr(2, 9),
+      email: `${finalNickname.toLowerCase()}@vibereels.nepal`,
+      user_metadata: {
+        username: finalNickname.toLowerCase().replace(/\s+/g, '_'),
+        name: finalNickname
+      },
+      username: finalNickname.toLowerCase().replace(/\s+/g, '_'),
+      name: finalNickname,
+      isGuest: true
+    };
+    onAuthSuccess(guestUser);
     setGuestLoading(false);
   };
 
@@ -70,26 +92,42 @@ export const AuthScreen = ({ onAuthSuccess }) => {
       alignItems: 'center',
       justifyContent: 'center',
       padding: '24px',
-      overflowY: 'auto'
+      overflowY: 'auto',
+      position: 'relative'
     }}>
-      {/* Logo */}
+      {/* Sleek VibeReels Logo */}
       <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-        <div style={{ fontSize: '48px', marginBottom: '6px' }}>🇳🇵</div>
+        <div style={{
+          width: '56px',
+          height: '56px',
+          borderRadius: '16px',
+          background: 'linear-gradient(135deg, #e11d48, #fb923c)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: '900',
+          fontSize: '32px',
+          color: '#fff',
+          margin: '0 auto 12px auto',
+          boxShadow: '0 8px 24px rgba(225, 29, 72, 0.4)'
+        }}>
+          V
+        </div>
         <div style={{
           fontFamily: 'Outfit, sans-serif',
           fontSize: '32px',
           fontWeight: '800',
-          background: 'linear-gradient(135deg, #e11d48, #fb923c)',
+          background: 'linear-gradient(135deg, #ffffff, #e2e8f0)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
           marginBottom: '4px'
         }}>
-          Vibe Reels
+          VibeReels
         </div>
-        <div style={{ color: '#64748b', fontSize: '14px' }}>Short videos by Nepalis, for Nepalis</div>
+        <div style={{ color: '#64748b', fontSize: '14px' }}>Short videos for everyone</div>
       </div>
 
-      {/* Card */}
+      {/* Main Card */}
       <div style={{
         width: '100%',
         maxWidth: '360px',
@@ -129,7 +167,7 @@ export const AuthScreen = ({ onAuthSuccess }) => {
             <>
               <InputField
                 icon={<User size={16} />}
-                placeholder="Your full name (e.g. Aarav Sharma)"
+                placeholder="Full Name (e.g. Aarav Sharma)"
                 value={name}
                 onChange={setName}
               />
@@ -213,8 +251,7 @@ export const AuthScreen = ({ onAuthSuccess }) => {
 
         {/* Guest Mode Button */}
         <button
-          onClick={handleGuestLogin}
-          disabled={guestLoading}
+          onClick={openGuestModal}
           style={{
             width: '100%',
             background: 'rgba(255,255,255,0.08)',
@@ -225,7 +262,7 @@ export const AuthScreen = ({ onAuthSuccess }) => {
             fontFamily: 'Outfit, sans-serif',
             fontSize: '14px',
             fontWeight: '600',
-            cursor: guestLoading ? 'not-allowed' : 'pointer',
+            cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -233,15 +270,47 @@ export const AuthScreen = ({ onAuthSuccess }) => {
             transition: 'all 0.2s'
           }}
         >
-          {guestLoading ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />}
-          Continue as Guest (गेस्ट एकाउन्ट)
+          <Sparkles size={16} /> Continue as Guest
         </button>
       </div>
 
-      <div style={{ color: '#475569', fontSize: '12px', textAlign: 'center', marginTop: '20px', lineHeight: 1.5 }}>
-        100% Free & Made in Nepal 🇳🇵<br />
-        Test with friends — Guest mode needs no email
-      </div>
+      {/* Guest Nickname Setup Modal */}
+      {showGuestModal && (
+        <div className="modal-overlay" onClick={() => setShowGuestModal(false)}>
+          <div className="bottom-sheet" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px', borderRadius: '24px' }}>
+            <div className="modal-header">
+              <span className="modal-title">Enter Guest Nickname</span>
+              <button className="close-btn" onClick={() => setShowGuestModal(false)}><X size={18} /></button>
+            </div>
+
+            <form onSubmit={handleGuestSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '10px 0' }}>
+              <div style={{ color: '#94a3b8', fontSize: '13px', lineHeight: 1.4 }}>
+                Choose a nickname to identify your comments & likes while browsing as a guest:
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Guest Nickname</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={guestNickname}
+                  onChange={(e) => setGuestNickname(e.target.value)}
+                  placeholder="e.g. Guest_4829"
+                  required
+                />
+              </div>
+
+              <div style={{ fontSize: '12px', color: '#64748b' }}>
+                * Note: Guests can like & comment, but cannot upload videos.
+              </div>
+
+              <button type="submit" className="submit-btn" disabled={guestLoading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                {guestLoading ? <Loader2 size={16} className="spin" /> : <>Start Browsing <ArrowRight size={16} /></>}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

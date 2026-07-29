@@ -5,7 +5,7 @@ export const UploadModal = ({ onClose, onUploadSuccess }) => {
   const [videoFile, setVideoFile] = useState(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState('');
   const [caption, setCaption] = useState('');
-  const [selectedTags, setSelectedTags] = useState(['#VibeReels', '#Nepal']);
+  const [selectedTags, setSelectedTags] = useState([]);
   const [songName, setSongName] = useState('🎵 Original Sound');
   const [isUploading, setIsUploading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -36,7 +36,7 @@ export const UploadModal = ({ onClose, onUploadSuccess }) => {
     }
     setIsUploading(true);
     await onUploadSuccess(videoFile, {
-      caption: caption || 'My new reel! 🇳🇵',
+      caption: caption.trim(),
       hashtags: selectedTags,
       song: songName
     });
