@@ -921,21 +921,59 @@ html, body {
   to { transform: scale(1); opacity: 1; }
 }
 
-/* Progress bar at the bottom of video */
+/* Interactive Progress Scrubber at the bottom of video */
 .video-progress-container {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
+  height: 20px; /* Touch target area */
+  display: flex;
+  align-items: flex-end;
+  z-index: 35;
+  cursor: pointer;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.video-progress-track {
+  width: 100%;
   height: 3px;
-  background: rgba(255, 255, 255, 0.2);
-  z-index: 30;
+  background: rgba(255, 255, 255, 0.22);
+  position: relative;
+  transition: height 0.15s ease, background 0.15s ease;
+}
+
+.video-progress-container:hover .video-progress-track,
+.video-progress-container.scrubbing .video-progress-track {
+  height: 7px;
+  background: rgba(255, 255, 255, 0.4);
 }
 
 .video-progress-bar {
   height: 100%;
-  background: var(--primary-nepal);
-  transition: width 0.1s linear;
+  background: linear-gradient(90deg, #38bdf8, #e11d48);
+  box-shadow: 0 0 8px #e11d48;
+  border-radius: 4px;
+}
+
+.video-progress-handle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #e11d48;
+  box-shadow: 0 0 12px rgba(225, 29, 72, 0.9);
+  transition: transform 0.15s var(--spring);
+  pointer-events: none;
+}
+
+.video-progress-container:hover .video-progress-handle,
+.video-progress-container.scrubbing .video-progress-handle {
+  transform: translate(-50%, -50%) scale(1);
 }
 
 /* ─── Skeleton Loading ─── */

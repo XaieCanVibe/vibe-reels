@@ -3,17 +3,23 @@ import { Play, Heart } from 'lucide-react';
 
 export const VideoPlayer = ({ video, isActive, onLike }) => {
   const videoRef = useRef(null);
+  const progressContainerRef = useRef(null);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(true);
   const [progress, setProgress] = useState(0);
   const [floatingHearts, setFloatingHearts] = useState([]);
+
+  // Scrubber seeking state
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   
   const lastTapRef = useRef(0);
 
   useEffect(() => {
     if (isActive && videoRef.current) {
       setIsBuffering(true);
-      // Ensure sound is enabled (unmuted)
       videoRef.current.muted = false;
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
@@ -41,15 +47,57 @@ export const VideoPlayer = ({ video, isActive, onLike }) => {
     }
   }, [isActive]);
 
+  const formatTime = (secs) => {
+    if (isNaN(secs) || secs < 0) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
   const handleTimeUpdate = () => {
-    if (videoRef.current) {
+    if (videoRef.current && !isScrubbing) {
       const current = videoRef.current.currentTime;
-      const duration = videoRef.current.duration || 1;
-      setProgress((current / duration) * 100);
+      const dur = videoRef.current.duration || 1;
+      setProgress((current / dur) * 100);
+      setDuration(dur);
+    }
+  };
+
+  const handleSeek = (clientX) => {
+    if (!progressContainerRef.current || !videoRef.current) return;
+    const rect = progressContainerRef.current.getBoundingClientRect();
+    const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const dur = videoRef.current.duration || 1;
+    const targetTime = pos * dur;
+    videoRef.current.currentTime = targetTime;
+    setProgress(pos * 100);
+    setScrubTime(targetTime);
+    setDuration(dur);
+  };
+
+  const handleSeekStart = (e) => {
+    e.stopPropagation();
+    setIsScrubbing(true);
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    handleSeek(clientX);
+  };
+
+  const handleSeekMove = (e) => {
+    if (!isScrubbing) return;
+    e.stopPropagation();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    handleSeek(clientX);
+  };
+
+  const handleSeekEnd = (e) => {
+    if (isScrubbing) {
+      e.stopPropagation();
+      setIsScrubbing(false);
     }
   };
 
   const handleVideoClick = (e) => {
+    if (isScrubbing) return;
     const now = Date.now();
     const DOUBLE_TAP_DELAY = 300;
 
@@ -114,7 +162,7 @@ export const VideoPlayer = ({ video, isActive, onLike }) => {
       ))}
 
       {/* Video Buffering / Loading Spinner */}
-      {isBuffering && isActive && (
+      {isBuffering && isActive && !isScrubbing && (
         <div className="play-pause-indicator" style={{ pointerEvents: 'none' }}>
           <div style={{
             width: '56px',
@@ -139,8 +187,37 @@ export const VideoPlayer = ({ video, isActive, onLike }) => {
         </div>
       )}
 
-      {/* Single Tap Play Indicator (only if not buffering and paused) */}
-      {!isPlaying && !isBuffering && (
+      {/* Scrubbing Timestamp Overlay Pill */}
+      {isScrubbing && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(0, 0, 0, 0.82)',
+          backdropFilter: 'blur(14px)',
+          border: '1px solid rgba(225, 29, 72, 0.6)',
+          borderRadius: '24px',
+          padding: '10px 20px',
+          color: '#ffffff',
+          fontWeight: '800',
+          fontSize: '16px',
+          letterSpacing: '0.5px',
+          zIndex: 60,
+          pointerEvents: 'none',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          <span style={{ color: '#e11d48' }}>{formatTime(scrubTime)}</span>
+          <span style={{ color: 'rgba(255,255,255,0.4)' }}>/</span>
+          <span>{formatTime(duration)}</span>
+        </div>
+      )}
+
+      {/* Single Tap Play Indicator (only if not buffering, not scrubbing, and paused) */}
+      {!isPlaying && !isBuffering && !isScrubbing && (
         <div className="play-pause-indicator">
           <div className="play-icon-glow">
             <Play size={36} fill="#ffffff" style={{ marginLeft: '4px' }} />
@@ -148,9 +225,22 @@ export const VideoPlayer = ({ video, isActive, onLike }) => {
         </div>
       )}
 
-      {/* Bottom Progress Bar */}
-      <div className="video-progress-container">
-        <div className="video-progress-bar" style={{ width: `${progress}%` }} />
+      {/* Interactive Bottom Progress Scrubber Bar */}
+      <div
+        ref={progressContainerRef}
+        className={`video-progress-container ${isScrubbing ? 'scrubbing' : ''}`}
+        onMouseDown={handleSeekStart}
+        onMouseMove={handleSeekMove}
+        onMouseUp={handleSeekEnd}
+        onTouchStart={handleSeekStart}
+        onTouchMove={handleSeekMove}
+        onTouchEnd={handleSeekEnd}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="video-progress-track">
+          <div className="video-progress-bar" style={{ width: `${progress}%` }} />
+          <div className="video-progress-handle" style={{ left: `${progress}%` }} />
+        </div>
       </div>
     </div>
   );
