@@ -187,71 +187,6 @@ export const VideoPlayer = ({ video, isActive, onLike }) => {
         </div>
       )}
 
-      {/* Scrubbing Timestamp & Mini Timeline Overlay Card (YouTube Shorts / TikTok style) */}
-      {isScrubbing && (
-        <div
-          className="scrub-popup-card"
-          style={{
-            position: 'absolute',
-            top: '48%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            background: 'rgba(15, 15, 20, 0.88)',
-            backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(225, 29, 72, 0.5)',
-            borderRadius: '20px',
-            padding: '14px 22px',
-            color: '#ffffff',
-            zIndex: 60,
-            pointerEvents: 'none',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.9), 0 0 20px rgba(225,29,72,0.25)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '8px',
-            minWidth: '150px',
-            animation: 'scaleIn 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-          }}
-        >
-          {/* Timestamp Numbers */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '16px', fontWeight: '800' }}>
-            <span style={{ color: '#e11d48', textShadow: '0 0 10px rgba(225,29,72,0.6)' }}>{formatTime(scrubTime)}</span>
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '400' }}>/</span>
-            <span style={{ color: '#cbd5e1' }}>{formatTime(duration)}</span>
-          </div>
-
-          {/* Mini Scrubber Line Inside Center Popup: ==========O--------- */}
-          <div style={{
-            width: '120px',
-            height: '4px',
-            background: 'rgba(255, 255, 255, 0.2)',
-            borderRadius: '2px',
-            position: 'relative',
-            marginTop: '2px'
-          }}>
-            <div style={{
-              width: `${progress}%`,
-              height: '100%',
-              background: 'linear-gradient(90deg, #38bdf8, #e11d48)',
-              borderRadius: '2px',
-              boxShadow: '0 0 8px #e11d48'
-            }} />
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: `${progress}%`,
-              transform: 'translate(-50%, -50%)',
-              width: '10px',
-              height: '10px',
-              borderRadius: '50%',
-              background: '#ffffff',
-              border: '2px solid #e11d48',
-              boxShadow: '0 0 10px rgba(225,29,72,0.9)'
-            }} />
-          </div>
-        </div>
-      )}
-
       {/* Single Tap Play Indicator (only if not buffering, not scrubbing, and paused) */}
       {!isPlaying && !isBuffering && !isScrubbing && (
         <div className="play-pause-indicator">
@@ -273,6 +208,52 @@ export const VideoPlayer = ({ video, isActive, onLike }) => {
         onTouchEnd={handleSeekEnd}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Floating Tooltip Bubble attached directly to Handle / Mouse position (as drawn in canvas) */}
+        {isScrubbing && (
+          <div
+            className="scrub-handle-tooltip"
+            style={{
+              position: 'absolute',
+              bottom: '28px',
+              left: `clamp(50px, ${progress}%, calc(100% - 50px))`,
+              transform: 'translateX(-50%)',
+              background: 'rgba(15, 15, 20, 0.94)',
+              backdropFilter: 'blur(12px)',
+              border: '1.5px solid rgba(225, 29, 72, 0.7)',
+              borderRadius: '16px',
+              padding: '6px 14px',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: '800',
+              whiteSpace: 'nowrap',
+              zIndex: 50,
+              boxShadow: '0 6px 20px rgba(0,0,0,0.85), 0 0 16px rgba(225, 29, 72, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              pointerEvents: 'none',
+              animation: 'tooltipPop 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+            }}
+          >
+            <span style={{ color: '#e11d48' }}>{formatTime(scrubTime)}</span>
+            <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '400' }}>/</span>
+            <span style={{ color: '#cbd5e1' }}>{formatTime(duration)}</span>
+            
+            {/* Downward Pointer Arrow Pointing to Drag Handle */}
+            <div style={{
+              position: 'absolute',
+              bottom: '-6px',
+              left: '50%',
+              transform: 'translateX(-50%) rotate(45deg)',
+              width: '10px',
+              height: '10px',
+              background: 'rgba(15, 15, 20, 0.94)',
+              borderRight: '1.5px solid rgba(225, 29, 72, 0.7)',
+              borderBottom: '1.5px solid rgba(225, 29, 72, 0.7)'
+            }} />
+          </div>
+        )}
+
         <div className="video-progress-track">
           <div className="video-progress-bar" style={{ width: `${progress}%` }} />
           <div className="video-progress-handle" style={{ left: `${progress}%` }} />
