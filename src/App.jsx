@@ -36,6 +36,7 @@ export default function App() {
   const [reels, setReels] = useState([]);
   const [likedIds, setLikedIds] = useState(new Set());
   const [followingIds, setFollowingIds] = useState(new Set());
+  const [viewedReels, setViewedReels] = useState(new Set()); // Unique view tracking per session
   const [notifications, setNotifications] = useState([]);
   const [feedLoading, setFeedLoading] = useState(false);
   const [notifLoading, setNotifLoading] = useState(false);
@@ -204,9 +205,15 @@ export default function App() {
     }
   };
 
-  // ── VIEW COUNTING ─────────────────────────────────────────────────────────────
+  // ── UNIQUE VIEW COUNTING (1 View Per Reel per user/session) ───────────────────
   const handleVideoChange = (reelId) => {
-    if (reelId) incrementViews(reelId);
+    if (!reelId || viewedReels.has(reelId)) return; // Prevent duplicate counts on re-scroll
+    setViewedReels((prev) => new Set(prev).add(reelId));
+    const viewerId = authUser?.id || 'guest-' + (sessionStorage.getItem('guest_session_id') || Math.random().toString(36).substring(2, 10));
+    if (!sessionStorage.getItem('guest_session_id')) {
+      sessionStorage.setItem('guest_session_id', viewerId);
+    }
+    incrementViews(reelId, viewerId);
   };
 
   // ── UPLOAD GUARD ─────────────────────────────────────────────────────────────
@@ -240,6 +247,7 @@ export default function App() {
     setReels([]);
     setLikedIds(new Set());
     setFollowingIds(new Set());
+    setViewedReels(new Set());
     setShowAuthOverlay(false);
   };
 
@@ -318,6 +326,9 @@ export default function App() {
             onVideoChange={handleVideoChange}
             isGuest={isGuest}
             onGuestAction={(action) => setGuestNoticeType(action)}
+            followingIds={followingIds}
+            currentUserId={authUser?.id}
+            onFollowToggle={handleFollowToggle}
           />
         )
       )}

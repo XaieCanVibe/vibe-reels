@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { VideoPlayer } from './VideoPlayer';
-import { Heart, MessageCircle, Share2, Music, CheckCircle2, Plus } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Music, CheckCircle2, Plus, Check } from 'lucide-react';
 
 export const VideoFeed = ({
   reels,
@@ -10,9 +10,13 @@ export const VideoFeed = ({
   onSelectUser,
   onVideoChange,
   isGuest = false,
-  onGuestAction
+  onGuestAction,
+  followingIds = new Set(),
+  currentUserId,
+  onFollowToggle
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [followedJustNow, setFollowedJustNow] = useState(new Set());
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -36,12 +40,25 @@ export const VideoFeed = ({
     };
   }, [activeIndex, reels.length]);
 
+  const handleFollowClick = (e, creatorId) => {
+    e.stopPropagation();
+    if (isGuest) {
+      onGuestAction && onGuestAction('follow');
+      return;
+    }
+    setFollowedJustNow((prev) => new Set(prev).add(creatorId));
+    onFollowToggle && onFollowToggle(creatorId);
+  };
+
   return (
     <div className="video-feed" ref={containerRef}>
       {reels.map((reel, index) => {
         const isLiked = reel.isLiked;
         const creator = reel.profiles || reel.user || {};
         const avatarUrl = creator.avatar_url || creator.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${creator.username}`;
+
+        const isOwnReel = currentUserId && (creator.id === currentUserId || reel.user_id === currentUserId);
+        const isFollowingCreator = followingIds.has(creator.id) || followedJustNow.has(creator.id) || isOwnReel;
 
         return (
           <div key={reel.id} className="video-card">
@@ -88,10 +105,11 @@ export const VideoFeed = ({
 
               {/* Side Actions (Bottom Right) */}
               <div className="side-actions">
-                {/* User Avatar */}
+                {/* User Avatar & Follow Plus Button */}
                 <div
                   className="profile-avatar-btn"
                   onClick={() => onSelectUser && onSelectUser(creator)}
+                  style={{ position: 'relative' }}
                 >
                   <img
                     src={avatarUrl}
@@ -99,9 +117,34 @@ export const VideoFeed = ({
                     className="profile-avatar-img"
                     onError={(e) => { e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${creator.username}`; }}
                   />
-                  <div className="follow-plus-btn">
-                    <Plus size={12} strokeWidth={3} />
-                  </div>
+
+                  {/* Show + Follow Button only if NOT already following */}
+                  {!isFollowingCreator && (
+                    <div
+                      className="follow-plus-btn"
+                      onClick={(e) => handleFollowClick(e, creator.id)}
+                      style={{
+                        position: 'absolute',
+                        bottom: '-6px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: '#e11d48',
+                        color: '#fff',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                      }}
+                      title="Follow"
+                    >
+                      <Plus size={13} strokeWidth={3} />
+                    </div>
+                  )}
                 </div>
 
                 {/* Like Button */}

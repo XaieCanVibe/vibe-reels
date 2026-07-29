@@ -120,7 +120,7 @@ create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references public.profiles(id) on delete cascade not null,
   actor_id uuid references public.profiles(id) on delete cascade not null,
-  type text not null, -- 'like' | 'comment' | 'follow'
+  type text not null,
   reel_id uuid references public.reels(id) on delete cascade,
   created_at timestamp with time zone default timezone('utc'::text, now()),
   read boolean default false
@@ -134,25 +134,31 @@ create policy "Users can read their notifications" on public.notifications
 create policy "Users can create notifications" on public.notifications
   for insert with check (auth.uid() = actor_id);
 
--- 7. Storage Bucket for videos
-insert into storage.buckets (id, name, public) values ('reels', 'reels', true)
-on conflict (id) do nothing;
+-- 7. REEL VIEWS table (for 1 unique view per account/user)
+create table if not exists public.reel_views (
+  id uuid primary key default gen_random_uuid(),
+  reel_id uuid references public.reels(id) on delete cascade not null,
+  viewer_id text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()),
+  unique(reel_id, viewer_id)
+);
 
-create policy "Anyone can read reels bucket" on storage.objects
-  for select using (bucket_id = 'reels');
+alter table public.reel_views enable row level security;
 
-create policy "Authenticated users can upload reels" on storage.objects
-  for insert with check (bucket_id = 'reels' and auth.role() = 'authenticated');
+create policy "Reel views are publicly readable" on public.reel_views
+  for select using (true);
 
--- 8. Storage Bucket for avatars
-insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)
-on conflict (id) do nothing;
+create policy "Anyone can insert reel views" on public.reel_views
+  for insert with check (true);
 
-create policy "Anyone can read avatars bucket" on storage.objects
-  for select using (bucket_id = 'avatars');
+-- 8. Storage Buckets
+insert into storage.buckets (id, name, public) values ('reels', 'reels', true) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
-create policy "Authenticated users can upload avatars" on storage.objects
-  for insert with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
+create policy "Anyone can read reels bucket" on storage.objects for select using (bucket_id = 'reels');
+create policy "Authenticated users can upload reels" on storage.objects for insert with check (bucket_id = 'reels' and auth.role() = 'authenticated');
+create policy "Anyone can read avatars bucket" on storage.objects for select using (bucket_id = 'avatars');
+create policy "Authenticated users can upload avatars" on storage.objects for insert with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
 
 -- 9. Auto-create profile on sign up
 create or replace function public.handle_new_user()
@@ -173,31 +179,37 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- 10. RPC: increment_views (callable by anon — guests can count views)
-create or replace function public.increment_views(reel_id uuid)
+-- 10. RPC: increment_views (Unique per viewer_id)
+create or replace function public.increment_views(reel_id uuid, viewer_id text)
 returns void as $$
-  update public.reels set views_count = coalesce(views_count, 0) + 1 where id = reel_id;
-$$ language sql security definer;
+begin
+  insert into public.reel_views (reel_id, viewer_id)
+  values (reel_id, viewer_id)
+  on conflict (reel_id, viewer_id) do nothing;
 
-grant execute on function public.increment_views(uuid) to anon, authenticated;
+  if found then
+    update public.reels set views_count = coalesce(views_count, 0) + 1 where id = reel_id;
+  end if;
+end;
+$$ language plpgsql security definer;
 
--- 11. RPC: increment_likes
+grant execute on function public.increment_views(uuid, text) to anon, authenticated;
+
+-- 11. RPC: increment_likes / decrement_likes
 create or replace function public.increment_likes(reel_id uuid)
 returns void as $$
   update public.reels set likes_count = coalesce(likes_count, 0) + 1 where id = reel_id;
 $$ language sql security definer;
 
-grant execute on function public.increment_likes(uuid) to authenticated;
-
--- 12. RPC: decrement_likes
 create or replace function public.decrement_likes(reel_id uuid)
 returns void as $$
   update public.reels set likes_count = greatest(0, coalesce(likes_count, 0) - 1) where id = reel_id;
 $$ language sql security definer;
 
+grant execute on function public.increment_likes(uuid) to authenticated;
 grant execute on function public.decrement_likes(uuid) to authenticated;
 
--- 13. RPC: increment_comments
+-- 12. RPC: increment_comments
 create or replace function public.increment_comments(reel_id uuid)
 returns void as $$
   update public.reels set comments_count = coalesce(comments_count, 0) + 1 where id = reel_id;
@@ -205,7 +217,7 @@ $$ language sql security definer;
 
 grant execute on function public.increment_comments(uuid) to authenticated;
 
--- 14. RPC: increment_followers / decrement_followers
+-- 13. RPC: increment_followers / decrement_followers / increment_following / decrement_following
 create or replace function public.increment_followers(target_user_id uuid)
 returns void as $$
   update public.profiles set followers_count = coalesce(followers_count, 0) + 1 where id = target_user_id;
@@ -216,10 +228,6 @@ returns void as $$
   update public.profiles set followers_count = greatest(0, coalesce(followers_count, 0) - 1) where id = target_user_id;
 $$ language sql security definer;
 
-grant execute on function public.increment_followers(uuid) to authenticated;
-grant execute on function public.decrement_followers(uuid) to authenticated;
-
--- 15. RPC: increment_following / decrement_following
 create or replace function public.increment_following(target_user_id uuid)
 returns void as $$
   update public.profiles set following_count = coalesce(following_count, 0) + 1 where id = target_user_id;
@@ -230,5 +238,7 @@ returns void as $$
   update public.profiles set following_count = greatest(0, coalesce(following_count, 0) - 1) where id = target_user_id;
 $$ language sql security definer;
 
+grant execute on function public.increment_followers(uuid) to authenticated;
+grant execute on function public.decrement_followers(uuid) to authenticated;
 grant execute on function public.increment_following(uuid) to authenticated;
 grant execute on function public.decrement_following(uuid) to authenticated;

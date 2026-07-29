@@ -120,12 +120,14 @@ export const deleteReel = async (userId, reelId) => {
   return { error };
 };
 
-// Increment view count
-export const incrementViews = async (reelId) => {
+// Increment unique view count — called whenever a reel becomes active
+export const incrementViews = async (reelId, viewerId = 'anonymous') => {
   if (!isSupabaseConfigured || !reelId) return;
   try {
-    await supabase.rpc('increment_views', { reel_id: reelId });
-  } catch (_) {}
+    await supabase.rpc('increment_views', { reel_id: reelId, viewer_id: viewerId });
+  } catch (_) {
+    // Silently fail if views fails
+  }
 };
 
 // ─── LIKES ───────────────────────────────────────────────────────────────────

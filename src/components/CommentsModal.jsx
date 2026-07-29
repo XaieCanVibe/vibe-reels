@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { X, Send, Lock } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Send, Lock, Reply } from 'lucide-react';
 
 export const CommentsModal = ({ reel, comments = [], isGuest, onClose, onAddComment, onOpenAuth }) => {
   const [text, setText] = useState('');
+  const inputRef = useRef(null);
 
   if (!reel) return null;
 
@@ -12,6 +13,17 @@ export const CommentsModal = ({ reel, comments = [], isGuest, onClose, onAddComm
     if (!text.trim()) return;
     onAddComment(reel.id, text);
     setText('');
+  };
+
+  const handleReplyClick = (username) => {
+    if (isGuest) {
+      onOpenAuth && onOpenAuth();
+      return;
+    }
+    setText(`@${username} `);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   return (
@@ -39,8 +51,27 @@ export const CommentsModal = ({ reel, comments = [], isGuest, onClose, onAddComm
                 <div className="comment-content">
                   <div className="comment-user">@{comment.profiles?.username}</div>
                   <div className="comment-text">{comment.text}</div>
-                  <div className="comment-time">
-                    {new Date(comment.created_at).toLocaleString()}
+                  
+                  {/* Reply option button (Date/time removed) */}
+                  <div style={{ marginTop: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleReplyClick(comment.profiles?.username || 'user')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#38bdf8',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Reply size={12} /> Reply
+                    </button>
                   </div>
                 </div>
               </div>
@@ -76,6 +107,7 @@ export const CommentsModal = ({ reel, comments = [], isGuest, onClose, onAddComm
         ) : (
           <form className="comment-input-bar" onSubmit={handleSubmit}>
             <input
+              ref={inputRef}
               type="text"
               className="comment-input"
               placeholder="Add a comment..."
