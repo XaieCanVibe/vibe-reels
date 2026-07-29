@@ -21,8 +21,12 @@ export const VideoFeed = ({
   const [isPulling, setIsPulling] = useState(false);
   const [pullY, setPullY] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  // Heart burst: { reelId, x, y }
+  const [heartBurst, setHeartBurst] = useState(null);
+  const heartBurstTimer = useRef(null);
   const containerRef = useRef(null);
   const touchStartY = useRef(0);
+  const lastTapRef = useRef({});
   const PULL_THRESHOLD = 70;
 
   useEffect(() => {
@@ -82,6 +86,26 @@ export const VideoFeed = ({
     onFollowToggle && onFollowToggle(creatorId);
   };
 
+  // ── Double-tap to like with heart burst ──
+  const handleVideoTap = (e, reel) => {
+    const now = Date.now();
+    const last = lastTapRef.current[reel.id] || 0;
+    if (now - last < 300) {
+      // Double tap!
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      setHeartBurst({ reelId: reel.id, x, y });
+      if (!reel.isLiked) {
+        if (isGuest) { onGuestAction && onGuestAction('like'); }
+        else { onLike(reel.id); }
+      }
+      clearTimeout(heartBurstTimer.current);
+      heartBurstTimer.current = setTimeout(() => setHeartBurst(null), 750);
+    }
+    lastTapRef.current[reel.id] = now;
+  };
+
   return (
     <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
       {/* Pull-to-Refresh indicator */}
@@ -106,9 +130,10 @@ export const VideoFeed = ({
           const avatarUrl = creator.avatar_url || creator.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${creator.username}`;
           const isOwnReel = currentUserId && (creator.id === currentUserId || reel.user_id === currentUserId);
           const isFollowingCreator = followingIds.has(creator.id) || followedJustNow.has(creator.id) || isOwnReel;
+          const showBurst = heartBurst?.reelId === reel.id;
 
           return (
-            <div key={reel.id} className="video-card">
+            <div key={reel.id} className="video-card video-item" onClick={(e) => handleVideoTap(e, reel)}>
               <VideoPlayer
                 video={{ ...reel, videoUrl: reel.video_url || reel.videoUrl }}
                 isActive={index === activeIndex}
@@ -117,6 +142,16 @@ export const VideoFeed = ({
                   else { onLike(reelId); }
                 }}
               />
+
+              {/* Double-tap heart burst */}
+              {showBurst && (
+                <div
+                  className="heart-burst"
+                  style={{ left: heartBurst.x, top: heartBurst.y }}
+                >
+                  ♥
+                </div>
+              )}
 
               <div className="video-overlay">
                 {/* Creator Info & Caption */}

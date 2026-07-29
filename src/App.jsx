@@ -525,39 +525,45 @@ export default function App() {
 
       {/* ── Own Profile ── */}
       {activeTab === 'profile' && (
-        <UserProfile
-          user={profile || authUser}
-          currentUserId={authUser?.id}
-          userReels={reelsWithLiked}
-          onSelectReel={() => setActiveTab('home')}
-          onSignOut={handleSignOut}
-          onDeleteReel={handleDeleteReel}
-          onOpenSettings={() => setActiveTab('settings')}
-        />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', animation: 'pageSlideUp 0.38s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
+          <UserProfile
+            user={profile || authUser}
+            currentUserId={authUser?.id}
+            userReels={reelsWithLiked}
+            onSelectReel={() => setActiveTab('home')}
+            onSignOut={handleSignOut}
+            onDeleteReel={handleDeleteReel}
+            onOpenSettings={() => setActiveTab('settings')}
+          />
+        </div>
       )}
 
       {/* ── Other User Profile (Standalone Page with Back Button, No Bottom Nav) ── */}
       {activeTab === 'user_profile' && selectedUser && (
-        <UserProfile
-          user={selectedUser}
-          currentUserId={authUser?.id}
-          userReels={reelsWithLiked}
-          onSelectReel={() => setActiveTab('home')}
-          onSignOut={handleSignOut}
-          isFollowing={followingIds.has(selectedUser.id)}
-          onFollowToggle={handleFollowToggle}
-          onBack={() => { setSelectedUser(null); setActiveTab('home'); }}
-        />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', animation: 'pageSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
+          <UserProfile
+            user={selectedUser}
+            currentUserId={authUser?.id}
+            userReels={reelsWithLiked}
+            onSelectReel={() => setActiveTab('home')}
+            onSignOut={handleSignOut}
+            isFollowing={followingIds.has(selectedUser.id)}
+            onFollowToggle={handleFollowToggle}
+            onBack={() => { setSelectedUser(null); setActiveTab('home'); }}
+          />
+        </div>
       )}
 
       {/* ── Settings (Full Page) ── */}
       {activeTab === 'settings' && (
-        <SettingsScreen
-          user={profile || authUser}
-          onBack={() => setActiveTab('profile')}
-          onSignOut={handleSignOut}
-          onEditProfile={() => setActiveTab('profile')}
-        />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', animation: 'pageSlideIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
+          <SettingsScreen
+            user={profile || authUser}
+            onBack={() => setActiveTab('profile')}
+            onSignOut={handleSignOut}
+            onEditProfile={() => setActiveTab('profile')}
+          />
+        </div>
       )}
 
       {/* Bottom Nav (Hidden on other user's profile and settings) */}

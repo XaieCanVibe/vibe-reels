@@ -34,6 +34,7 @@ export const UserProfile = ({
 
   const isGuest = user?.isGuest || user?.id?.toString().startsWith('guest-');
   const isOwnProfile = !isGuest && currentUserId && (user?.id === currentUserId);
+  const [followBouncing, setFollowBouncing] = useState(false);
 
   const myUploads = userReels.filter(
     (r) => r.user_id === user?.id || r.profiles?.id === user?.id || r.user?.id === user?.id
@@ -334,7 +335,14 @@ export const UserProfile = ({
         {!isOwnProfile && !isGuest && (
           <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
             <button
-              onClick={() => onFollowToggle && onFollowToggle(user.id)}
+              onClick={() => {
+                if (onFollowToggle) {
+                  onFollowToggle(user.id);
+                  setFollowBouncing(true);
+                  setTimeout(() => setFollowBouncing(false), 500);
+                }
+              }}
+              className={followBouncing ? 'follow-btn-animate' : ''}
               style={{
                 padding: '10px 24px',
                 borderRadius: '20px',
@@ -347,6 +355,7 @@ export const UserProfile = ({
                 alignItems: 'center',
                 gap: '8px',
                 cursor: 'pointer',
+                transition: 'background 0.25s ease, box-shadow 0.25s ease',
                 boxShadow: isFollowing ? 'none' : '0 4px 14px rgba(225, 29, 72, 0.4)'
               }}
             >
