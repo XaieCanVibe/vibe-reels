@@ -3,7 +3,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 // ─── AUTH ────────────────────────────────────────────────────────────────────
 
 export const signUp = async (email, password, username, name) => {
-  if (!isSupabaseConfigured) return { error: 'Supabase not configured' };
+  if (!isSupabaseConfigured) return { error: { message: 'Supabase not configured' } };
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -15,9 +15,24 @@ export const signUp = async (email, password, username, name) => {
 };
 
 export const signIn = async (email, password) => {
-  if (!isSupabaseConfigured) return { error: 'Supabase not configured' };
+  if (!isSupabaseConfigured) return { error: { message: 'Supabase not configured' } };
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   return { data, error };
+};
+
+export const signInAnonymously = async () => {
+  if (!isSupabaseConfigured) return { error: { message: 'Supabase not configured' } };
+  // Supabase anonymous sign in or local guest profile
+  const guestUser = {
+    id: 'guest-' + Math.random().toString(36).substr(2, 9),
+    email: 'guest@vibereels.nepal',
+    user_metadata: {
+      username: 'guest_' + Math.floor(1000 + Math.random() * 9000),
+      name: 'Nepali Guest 🇳🇵'
+    },
+    isGuest: true
+  };
+  return { user: guestUser, error: null };
 };
 
 export const signOut = async () => {
@@ -40,7 +55,17 @@ export const onAuthStateChange = (callback) => {
 // ─── PROFILES ────────────────────────────────────────────────────────────────
 
 export const getProfile = async (userId) => {
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured || userId?.startsWith('guest-')) {
+    return {
+      id: userId || 'guest',
+      username: 'guest_' + Math.floor(1000 + Math.random() * 9000),
+      name: 'Nepali Guest 🇳🇵',
+      avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=guest`,
+      followers_count: 0,
+      following_count: 0,
+      likes_count: 0
+    };
+  }
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -50,7 +75,7 @@ export const getProfile = async (userId) => {
 };
 
 export const updateProfile = async (userId, updates) => {
-  if (!isSupabaseConfigured) return null;
+  if (!isSupabaseConfigured || userId?.startsWith('guest-')) return null;
   const { data, error } = await supabase
     .from('profiles')
     .update(updates)
@@ -58,16 +83,6 @@ export const updateProfile = async (userId, updates) => {
     .select()
     .single();
   return { data, error };
-};
-
-export const uploadAvatar = async (userId, file) => {
-  if (!isSupabaseConfigured) return null;
-  const ext = file.name.split('.').pop();
-  const filePath = `${userId}/avatar.${ext}`;
-  const { error } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
-  if (error) return { error };
-  const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-  return { url: publicUrl, error: null };
 };
 
 // ─── REELS ───────────────────────────────────────────────────────────────────
@@ -99,7 +114,7 @@ export const getUserReels = async (userId) => {
 };
 
 export const uploadReel = async (userId, file, metadata) => {
-  if (!isSupabaseConfigured) return { error: 'Supabase not configured' };
+  if (!isSupabaseConfigured) return { error: { message: 'Supabase not configured' } };
 
   // Upload video to storage
   const ext = file.name.split('.').pop();
@@ -108,7 +123,7 @@ export const uploadReel = async (userId, file, metadata) => {
     .from('reels')
     .upload(fileName, file);
 
-  if (uploadError) return { error: uploadError.message };
+  if (uploadError) return { error: uploadError };
 
   const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(fileName);
 
@@ -116,7 +131,7 @@ export const uploadReel = async (userId, file, metadata) => {
   const { data, error } = await supabase
     .from('reels')
     .insert({
-      user_id: userId,
+      user_id: userId.startsWith('guest-') ? '00000000-0000-0000-0000-000000000000' : userId,
       video_url: publicUrl,
       caption: metadata.caption || '',
       hashtags: metadata.hashtags || [],
@@ -128,15 +143,10 @@ export const uploadReel = async (userId, file, metadata) => {
   return { data, error };
 };
 
-export const deleteReel = async (reelId) => {
-  if (!isSupabaseConfigured) return;
-  await supabase.from('reels').delete().eq('id', reelId);
-};
-
-// ─── LIKES ───────────────────────────────────────────────────────────────────
+// ─── LIKES & COMMENTS ────────────────────────────────────────────────────────
 
 export const getLikedReelIds = async (userId) => {
-  if (!isSupabaseConfigured) return [];
+  if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) return [];
   const { data, error } = await supabase
     .from('likes')
     .select('reel_id')
@@ -145,17 +155,14 @@ export const getLikedReelIds = async (userId) => {
 };
 
 export const likeReel = async (userId, reelId) => {
-  if (!isSupabaseConfigured) return;
+  if (!isSupabaseConfigured || userId?.startsWith('guest-')) return;
   await supabase.from('likes').insert({ user_id: userId, reel_id: reelId });
-  await supabase.rpc('increment', { table: 'reels', id: reelId, column: 'likes_count' });
 };
 
 export const unlikeReel = async (userId, reelId) => {
-  if (!isSupabaseConfigured) return;
+  if (!isSupabaseConfigured || userId?.startsWith('guest-')) return;
   await supabase.from('likes').delete().match({ user_id: userId, reel_id: reelId });
 };
-
-// ─── COMMENTS ────────────────────────────────────────────────────────────────
 
 export const getComments = async (reelId) => {
   if (!isSupabaseConfigured) return [];
@@ -168,7 +175,18 @@ export const getComments = async (reelId) => {
 };
 
 export const addComment = async (userId, reelId, text) => {
-  if (!isSupabaseConfigured) return { error: 'Supabase not configured' };
+  if (!isSupabaseConfigured) return { error: { message: 'Supabase not configured' } };
+  if (userId?.startsWith('guest-')) {
+    return {
+      data: {
+        id: 'guest-comment-' + Date.now(),
+        text,
+        created_at: new Date().toISOString(),
+        profiles: { username: 'guest', avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=guest` }
+      },
+      error: null
+    };
+  }
   const { data, error } = await supabase
     .from('comments')
     .insert({ user_id: userId, reel_id: reelId, text })

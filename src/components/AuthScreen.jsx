@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { signIn, signUp } from '../services/supabaseService';
-import { Eye, EyeOff, User, Lock, Mail, Loader2 } from 'lucide-react';
+import { signIn, signUp, signInAnonymously } from '../services/supabaseService';
+import { Eye, EyeOff, User, Lock, Mail, Loader2, UserCheck, Sparkles } from 'lucide-react';
 
 export const AuthScreen = ({ onAuthSuccess }) => {
   const [mode, setMode] = useState('login'); // 'login' | 'signup'
@@ -10,6 +10,7 @@ export const AuthScreen = ({ onAuthSuccess }) => {
   const [name, setName] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -22,7 +23,11 @@ export const AuthScreen = ({ onAuthSuccess }) => {
     if (mode === 'login') {
       const { data, error } = await signIn(email, password);
       if (error) {
-        setError(error.message || 'Login failed. Check your email and password.');
+        if (error.message?.includes('Email not confirmed')) {
+          setError('⚠️ Email not confirmed. Please check your inbox OR ask admin to disable "Confirm email" in Supabase settings!');
+        } else {
+          setError(error.message || 'Login failed. Check your email and password.');
+        }
       } else {
         onAuthSuccess(data.user);
       }
@@ -36,11 +41,23 @@ export const AuthScreen = ({ onAuthSuccess }) => {
       if (error) {
         setError(error.message || 'Sign up failed.');
       } else {
-        setMessage('✅ Check your email to confirm your account, then log in!');
-        setMode('login');
+        if (data.session) {
+          // Direct login without confirmation required
+          onAuthSuccess(data.user);
+        } else {
+          setMessage('🎉 Account created! You can now log in (if email confirmation is disabled in Supabase).');
+          setMode('login');
+        }
       }
     }
     setLoading(false);
+  };
+
+  const handleGuestLogin = async () => {
+    setGuestLoading(true);
+    const { user } = await signInAnonymously();
+    onAuthSuccess(user);
+    setGuestLoading(false);
   };
 
   return (
@@ -56,8 +73,8 @@ export const AuthScreen = ({ onAuthSuccess }) => {
       overflowY: 'auto'
     }}>
       {/* Logo */}
-      <div style={{ textAlign: 'center', marginBottom: '36px' }}>
-        <div style={{ fontSize: '52px', marginBottom: '8px' }}>🇳🇵</div>
+      <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+        <div style={{ fontSize: '48px', marginBottom: '6px' }}>🇳🇵</div>
         <div style={{
           fontFamily: 'Outfit, sans-serif',
           fontSize: '32px',
@@ -79,11 +96,11 @@ export const AuthScreen = ({ onAuthSuccess }) => {
         background: 'rgba(255,255,255,0.04)',
         border: '1px solid rgba(255,255,255,0.1)',
         borderRadius: '20px',
-        padding: '28px 24px',
+        padding: '24px',
         backdropFilter: 'blur(16px)'
       }}>
         {/* Toggle Tabs */}
-        <div style={{ display: 'flex', background: 'rgba(0,0,0,0.4)', borderRadius: '12px', padding: '4px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', background: 'rgba(0,0,0,0.4)', borderRadius: '12px', padding: '4px', marginBottom: '20px' }}>
           {['login', 'signup'].map((m) => (
             <button
               key={m}
@@ -148,13 +165,13 @@ export const AuthScreen = ({ onAuthSuccess }) => {
           />
 
           {error && (
-            <div style={{ background: 'rgba(225, 29, 72, 0.15)', border: '1px solid rgba(225, 29, 72, 0.4)', borderRadius: '10px', padding: '10px 14px', color: '#fda4af', fontSize: '13px' }}>
+            <div style={{ background: 'rgba(225, 29, 72, 0.15)', border: '1px solid rgba(225, 29, 72, 0.4)', borderRadius: '10px', padding: '10px 14px', color: '#fda4af', fontSize: '13px', lineHeight: 1.4 }}>
               {error}
             </div>
           )}
 
           {message && (
-            <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '10px', padding: '10px 14px', color: '#6ee7b7', fontSize: '13px' }}>
+            <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '10px', padding: '10px 14px', color: '#6ee7b7', fontSize: '13px', lineHeight: 1.4 }}>
               {message}
             </div>
           )}
@@ -169,7 +186,7 @@ export const AuthScreen = ({ onAuthSuccess }) => {
               padding: '14px',
               borderRadius: '12px',
               fontFamily: 'Outfit, sans-serif',
-              fontSize: '16px',
+              fontSize: '15px',
               fontWeight: '700',
               cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex',
@@ -182,15 +199,48 @@ export const AuthScreen = ({ onAuthSuccess }) => {
           >
             {loading
               ? <><Loader2 size={18} className="spin" /> Processing...</>
-              : mode === 'login' ? '🚀 Log In to Vibe Reels' : '🎉 Create Account'
+              : mode === 'login' ? '🚀 Log In' : '🎉 Create Account'
             }
           </button>
         </form>
+
+        {/* Divider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '18px 0', color: '#475569', fontSize: '12px' }}>
+          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+          <span>OR</span>
+          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+        </div>
+
+        {/* Guest Mode Button */}
+        <button
+          onClick={handleGuestLogin}
+          disabled={guestLoading}
+          style={{
+            width: '100%',
+            background: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            color: '#38bdf8',
+            padding: '12px',
+            borderRadius: '12px',
+            fontFamily: 'Outfit, sans-serif',
+            fontSize: '14px',
+            fontWeight: '600',
+            cursor: guestLoading ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.2s'
+          }}
+        >
+          {guestLoading ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />}
+          Continue as Guest (गेस्ट एकाउन्ट)
+        </button>
       </div>
 
-      <div style={{ color: '#334155', fontSize: '12px', textAlign: 'center', marginTop: '24px', lineHeight: 1.6 }}>
+      <div style={{ color: '#475569', fontSize: '12px', textAlign: 'center', marginTop: '20px', lineHeight: 1.5 }}>
         100% Free & Made in Nepal 🇳🇵<br />
-        Test with your friends — no credit card needed
+        Test with friends — Guest mode needs no email
       </div>
     </div>
   );
