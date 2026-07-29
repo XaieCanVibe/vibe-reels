@@ -17,40 +17,22 @@ A modern, minimal, 100% **FREE OF COST** TikTok clone designed for you and your 
 
 ---
 
-## 🚀 How to Run Locally
+## 🐙 Step-by-Step GitHub & Free Hosting Setup
 
-1. Open your terminal in this directory:
-   ```bash
-   cd c:\PCSX2\PCSX2\newwau
-   ```
-2. Start the development server:
-   ```bash
-   npm run dev
-   ```
-3. Open `http://localhost:3000` in your browser. (Press F12 -> Toggle Device Toolbar for mobile view!).
+### 1. Push to GitHub
+```bash
+git remote add origin https://github.com/YOUR_USERNAME/ramailo-reels.git
+git branch -M main
+git push -u origin main
+```
 
----
-
-## 🌐 How to Host Online for FREE (For You & Your Friends)
-
-### Option 1: Deploy on Vercel (Recommended - 1 Click & Free Forever)
-1. Push this project folder to your free **GitHub** repository.
-2. Go to [Vercel.com](https://vercel.com) and click **"Add New Project"**.
-3. Select your GitHub repository and click **Deploy**.
-4. Vercel will give you a free link like `ramailo-reels.vercel.app`!
-5. Send this link to your friends!
-
-### Option 2: Install as Phone App (PWA - 0 Cost)
-- **On Android**: Open your Vercel link in Chrome -> Tap 3 dots -> Tap **"Add to Home Screen"**.
-- **On iPhone (iOS)**: Open your Vercel link in Safari -> Tap Share button -> Tap **"Add to Home Screen"**.
-- The app will now appear on your phone like a native TikTok app!
+### 2. Deploy to Vercel (Free 100GB/mo Bandwidth)
+1. Go to [Vercel.com](https://vercel.com) and sign in with GitHub.
+2. Click **Import Project** -> Select `ramailo-reels`.
+3. Click **Deploy**.
+4. Send your live link (`https://ramailo-reels.vercel.app`) to your friends!
 
 ---
 
-## ☁️ Setting Up Free Cloud Storage (Supabase / Cloudinary)
-
-Out of the box, the app uses Local Storage & IndexedDB so you can test it immediately.
-When you want your friends' uploads to sync across all devices in real-time for free:
-1. Create a free account at [Supabase.com](https://supabase.com) (500MB DB + 1GB Storage for Free).
-2. Create a bucket named `reels` and set access to Public.
-3. Replace the storage functions in `src/services/storage.js` with Supabase Client SDK calls!
+## 📖 Complete Documentation & Hosting Comparison
+For full hosting comparisons (Vercel vs. Netlify vs. Cloudflare Pages) and database options, read [HOSTING_AND_DEPLOYMENT_GUIDE.md](file:///c:/PCSX2/PCSX2/newwau/HOSTING_AND_DEPLOYMENT_GUIDE.md).
