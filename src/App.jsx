@@ -422,6 +422,7 @@ export default function App() {
           />
         )}
       </div>
+    )}
 
       {/* ── Discover ── */}
       {activeTab === 'discover' && (
