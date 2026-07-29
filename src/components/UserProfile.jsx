@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Grid, Heart, Film, Edit3, LogOut, Sparkles, User, Check, X, Camera, AlertCircle, MoreVertical, Trash2, UserPlus, UserCheck } from 'lucide-react';
+import { Grid, Heart, Film, Edit3, LogOut, Sparkles, User, Check, X, Camera, AlertCircle, MoreVertical, Trash2, UserPlus, UserCheck, Play } from 'lucide-react';
 import { updateProfile, uploadAvatar } from '../services/supabaseService';
 
 export const UserProfile = ({
@@ -39,6 +39,13 @@ export const UserProfile = ({
   );
 
   const avatarUrl = avatarPreview || user?.avatar_url || user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username || 'user'}`;
+
+  const formatCount = (num) => {
+    if (!num) return '0';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+    return num.toString();
+  };
 
   const handleAvatarChange = (e) => {
     setEditError('');
@@ -228,19 +235,19 @@ export const UserProfile = ({
         <div className="profile-stats" style={{ display: 'flex', justifyContent: 'center', gap: '32px', margin: '16px 0' }}>
           <div className="stat-box" style={{ textAlign: 'center' }}>
             <span className="stat-value" style={{ display: 'block', fontSize: '18px', fontWeight: '800' }}>
-              {user?.following_count ?? user?.following ?? 0}
+              {formatCount(user?.following_count ?? user?.following ?? 0)}
             </span>
             <span className="stat-label" style={{ color: '#64748b', fontSize: '12px' }}>Following</span>
           </div>
           <div className="stat-box" style={{ textAlign: 'center' }}>
             <span className="stat-value" style={{ display: 'block', fontSize: '18px', fontWeight: '800' }}>
-              {user?.followers_count ?? user?.followers ?? 0}
+              {formatCount(user?.followers_count ?? user?.followers ?? 0)}
             </span>
             <span className="stat-label" style={{ color: '#64748b', fontSize: '12px' }}>Followers</span>
           </div>
           <div className="stat-box" style={{ textAlign: 'center' }}>
             <span className="stat-value" style={{ display: 'block', fontSize: '18px', fontWeight: '800' }}>
-              {totalLikesOnUploads || (user?.likes_count ?? user?.likesCount ?? 0)}
+              {formatCount(totalLikesOnUploads || (user?.likes_count ?? user?.likesCount ?? 0))}
             </span>
             <span className="stat-label" style={{ color: '#64748b', fontSize: '12px' }}>Likes</span>
           </div>
@@ -408,9 +415,11 @@ export const UserProfile = ({
                 playsInline
                 onClick={() => onSelectReel && onSelectReel(reel)}
               />
-              <div className="grid-likes-overlay" style={{ position: 'absolute', bottom: '6px', left: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.8)', pointerEvents: 'none' }}>
-                <Heart size={12} fill="#fff" color="#fff" />
-                <span>{reel.likes_count ?? reel.likesCount ?? 0}</span>
+              
+              {/* TikTok Style View Count Overlay */}
+              <div className="grid-views-overlay" style={{ position: 'absolute', bottom: '6px', left: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '700', color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.9)', pointerEvents: 'none' }}>
+                <Play size={13} fill="#fff" color="#fff" />
+                <span>{formatCount(reel.views_count ?? reel.viewsCount ?? 0)}</span>
               </div>
 
               {/* Delete Reel Button for Own Profile */}

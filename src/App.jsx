@@ -26,7 +26,7 @@ import {
   getFollowingIds,
   getNotifications
 } from './services/supabaseService';
-import { Compass, MessageSquare, Sparkles, Flame, Search, LogOut, Loader2, WifiOff, X, Heart, UserPlus, CheckCircle2 } from 'lucide-react';
+import { Compass, MessageSquare, Sparkles, Flame, Search, LogOut, Loader2, WifiOff, X, Heart, UserPlus, CheckCircle2, Play } from 'lucide-react';
 
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
@@ -342,8 +342,12 @@ export default function App() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
             {reelsWithLiked.map((reel) => (
-              <div key={reel.id} onClick={() => setActiveTab('home')} style={{ aspectRatio: '9/16', background: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer' }}>
+              <div key={reel.id} onClick={() => setActiveTab('home')} style={{ position: 'relative', aspectRatio: '9/16', background: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer' }}>
                 <video src={reel.video_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
+                <div style={{ position: 'absolute', bottom: '6px', left: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.9)', pointerEvents: 'none' }}>
+                  <Play size={12} fill="#fff" color="#fff" />
+                  <span>{reel.views_count || 0}</span>
+                </div>
               </div>
             ))}
           </div>
