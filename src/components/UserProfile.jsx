@@ -14,7 +14,8 @@ export const UserProfile = ({
   onSignOut,
   isFollowing = false,
   onFollowToggle,
-  onDeleteReel
+  onDeleteReel,
+  onOpenSettings
 }) => {
   const [activeTab, setActiveTab] = useState('uploads');
   const [isEditing, setIsEditing] = useState(false);
@@ -177,7 +178,7 @@ export const UserProfile = ({
               </button>
 
               <button
-                onClick={() => { setShowMenu(false); setShowSettingsModal(true); }}
+                onClick={() => { setShowMenu(false); onOpenSettings && onOpenSettings(); }}
                 style={{
                   background: 'none',
                   border: 'none',

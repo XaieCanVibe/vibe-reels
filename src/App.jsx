@@ -8,6 +8,7 @@ import { ShareModal } from './components/ShareModal';
 import { UserProfile } from './components/UserProfile';
 import { AuthScreen } from './components/AuthScreen';
 import { SkeletonFeed } from './components/SkeletonLoader';
+import { SettingsScreen } from './components/SettingsScreen';
 import { isSupabaseConfigured } from './lib/supabase';
 import {
   onAuthStateChange,
@@ -462,6 +463,17 @@ export default function App() {
           isFollowing={followingIds.has((selectedUser || profile || authUser)?.id)}
           onFollowToggle={handleFollowToggle}
           onDeleteReel={handleDeleteReel}
+          onOpenSettings={() => setActiveTab('settings')}
+        />
+      )}
+
+      {/* ── Settings (Full Page) ── */}
+      {activeTab === 'settings' && (
+        <SettingsScreen
+          user={profile || authUser}
+          onBack={() => setActiveTab('profile')}
+          onSignOut={handleSignOut}
+          onEditProfile={() => setActiveTab('profile')}
         />
       )}
 
