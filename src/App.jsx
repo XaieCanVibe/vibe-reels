@@ -250,13 +250,43 @@ export default function App() {
     else setIsUploadOpen(true);
   };
 
+  const [uploadProgress, setUploadProgress] = useState(null); // { isUploading, progress, previewUrl, caption }
+
   const handleUploadSuccess = async (file, metadata) => {
     setIsUploadOpen(false);
+    setActiveTab('home');
+    
+    setUploadProgress({
+      isUploading: true,
+      progress: 15,
+      previewUrl: metadata.previewUrl,
+      caption: metadata.caption
+    });
+
+    const progressInterval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (!prev || prev.progress >= 90) return prev;
+        return { ...prev, progress: prev.progress + 15 };
+      });
+    }, 400);
+
     const { data, error } = await uploadReel(authUser.id, file, metadata);
+    clearInterval(progressInterval);
+
     if (!error && data) {
+      setUploadProgress({
+        isUploading: true,
+        progress: 100,
+        previewUrl: metadata.previewUrl,
+        caption: metadata.caption
+      });
       setReels((prev) => [data, ...prev]);
-      setActiveTab('home');
+
+      setTimeout(() => {
+        setUploadProgress(null);
+      }, 2500);
     } else {
+      setUploadProgress(null);
       alert('Upload failed: ' + (error?.message || 'Unknown error'));
     }
   };
@@ -333,9 +363,43 @@ export default function App() {
 
       {/* ── Home Feed ── */}
       {activeTab === 'home' && (
-        feedLoading ? (
-          <SkeletonFeed />
-        ) : reelsWithLiked.length === 0 ? (
+        <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* Live YouTube/TikTok Style Upload Card */}
+          {uploadProgress && (
+            <div style={{
+              position: 'absolute',
+              top: '60px',
+              left: '16px',
+              right: '16px',
+              zIndex: 200,
+              background: 'rgba(18, 18, 24, 0.92)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(225, 29, 72, 0.4)',
+              borderRadius: '16px',
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.8)'
+            }}>
+              <div style={{ width: '40px', height: '54px', borderRadius: '8px', overflow: 'hidden', background: '#000', flexShrink: 0 }}>
+                {uploadProgress.previewUrl && <video src={uploadProgress.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#fff', display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span>{uploadProgress.progress < 100 ? '⏳ Uploading Reel to Feed...' : '✅ Upload Complete!'}</span>
+                  <span style={{ color: '#e11d48' }}>{uploadProgress.progress}%</span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.12)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${uploadProgress.progress}%`, height: '100%', background: 'linear-gradient(90deg, #38bdf8, #e11d48)', transition: 'width 0.3s ease' }} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {feedLoading ? (
+            <SkeletonFeed />
+          ) : reelsWithLiked.length === 0 ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: '#64748b', padding: '32px', textAlign: 'center' }}>
             <span style={{ fontSize: '48px' }}>🎬</span>
             <div style={{ fontSize: '18px', fontWeight: '700', color: '#fff' }}>No reels yet!</div>
@@ -357,6 +421,7 @@ export default function App() {
             onRefresh={loadFeed}
           />
         )
+        </div>
       )}
 
       {/* ── Discover ── */}

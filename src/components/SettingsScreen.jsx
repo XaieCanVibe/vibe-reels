@@ -58,7 +58,7 @@ export const SettingsScreen = ({ user, onBack, onSignOut, onEditProfile }) => {
           <p>We only collect information necessary to provide video reel sharing services: username, display name, bio, uploaded video files, profile picture avatar, and interactions (likes, comments, followers).</p>
 
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>2. Media Storage & File Limits</h3>
-          <p>Uploaded profile pictures are capped at 5MB, and video reels are capped at 20 seconds / 100MB to ensure optimal streaming performance.</p>
+          <p>Uploaded profile pictures are capped at 5MB, and 4K video reels are capped at 15 seconds / 600MB to ensure optimal streaming performance.</p>
 
           <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>3. Data Deletion & User Control</h3>
           <p>You have full ownership of your data. You can delete individual reels at any time, or use the <strong>"Delete Account Permanently"</strong> feature to permanently wipe your profile and all associated media from our database.</p>
@@ -103,7 +103,7 @@ export const SettingsScreen = ({ user, onBack, onSignOut, onEditProfile }) => {
     );
   }
 
-  // ── Main Full Page Settings (Clean White Theme) ──
+  // ── Main Full Page Settings (Executive White Theme with Official Vector Badges) ──
   return (
     <div style={{ flex: 1, overflowY: 'auto', background: '#f8fafc', color: '#0f172a', padding: '20px' }}>
       
@@ -134,32 +134,71 @@ export const SettingsScreen = ({ user, onBack, onSignOut, onEditProfile }) => {
         </div>
       </div>
 
-      {/* 🚀 Mobile Apps Coming Soon Banner */}
+      {/* 🚀 Mobile Apps Coming Soon Banner with Real Store Badges */}
       <div style={{
-        background: 'linear-gradient(135deg, #e11d48, #be123c)',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
         color: '#ffffff',
         borderRadius: '20px',
         padding: '20px',
         marginBottom: '20px',
-        boxShadow: '0 8px 24px rgba(225, 29, 72, 0.25)',
+        boxShadow: '0 10px 30px rgba(15, 23, 42, 0.25)',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        border: '1px solid rgba(255,255,255,0.1)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-          <Smartphone size={24} />
+          <Smartphone size={22} color="#38bdf8" />
           <span style={{ fontSize: '16px', fontWeight: '800', fontFamily: 'Outfit, sans-serif' }}>
-            VibeReels Apps Coming Soon!
+            VibeReels Mobile Apps Coming Soon
           </span>
         </div>
-        <p style={{ fontSize: '13px', opacity: 0.9, lineHeight: 1.4, marginBottom: '14px' }}>
-          Official VibeReels mobile apps are currently under development and launching soon on <strong>Google Play Store</strong> & <strong>Apple App Store</strong>!
+        <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: 1.5, marginBottom: '16px' }}>
+          Our native mobile applications with 4K recording are launching soon on the <strong>Google Play Store</strong> and <strong>Apple App Store</strong>!
         </p>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <div style={{ background: 'rgba(255,255,255,0.2)', padding: '6px 14px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            🤖 Play Store
+
+        {/* Real App Store & Play Store Vector Badges */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Google Play Store Badge */}
+          <div style={{
+            background: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            padding: '8px 16px',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            backdropFilter: 'blur(8px)'
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M3.609 1.814L15.358 12 3.609 22.186C3.242 22.012 3 21.616 3 21.144V2.856c0-.472.242-.868.609-1.042z" fill="#00D2FF"/>
+              <path d="M19.162 8.706l-3.804 3.294 3.804 3.294 4.31-2.484c.697-.402.697-1.708 0-2.11l-4.31-2.494z" fill="#FFD900"/>
+              <path d="M3.609 1.814L15.358 12 19.162 8.706 7.42.502c-1.34-.775-2.776-.051-3.811 1.312z" fill="#00F076"/>
+              <path d="M3.609 22.186L15.358 12 19.162 15.294 7.42 23.498c-1.34.775-2.776.051-3.811-1.312z" fill="#FF3A44"/>
+            </svg>
+            <div>
+              <div style={{ fontSize: '9px', textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.5px' }}>Get it on</div>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff' }}>Google Play</div>
+            </div>
           </div>
-          <div style={{ background: 'rgba(255,255,255,0.2)', padding: '6px 14px', borderRadius: '12px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            🍏 App Store
+
+          {/* Apple App Store Badge */}
+          <div style={{
+            background: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            padding: '8px 16px',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            backdropFilter: 'blur(8px)'
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="#ffffff">
+              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.84c.68-.83 1.14-1.99.01-3.14-1.04.04-2.3.69-3.03 1.55-.65.75-1.22 1.93-1.07 3.07 1.16.09 2.34-.58 3.09-1.48z"/>
+            </svg>
+            <div>
+              <div style={{ fontSize: '9px', textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.5px' }}>Download on the</div>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: '#ffffff' }}>App Store</div>
+            </div>
           </div>
         </div>
       </div>

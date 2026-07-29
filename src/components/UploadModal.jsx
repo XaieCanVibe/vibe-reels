@@ -18,20 +18,20 @@ export const UploadModal = ({ onClose, onUploadSuccess }) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // 1. Size check: Max 100MB
-    const MAX_SIZE_MB = 100;
+    // 1. Size check: Max 600MB (Supports 4K video clips)
+    const MAX_SIZE_MB = 600;
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      setErrorMsg(`⚠️ File size exceeds ${MAX_SIZE_MB}MB limit! Please pick a smaller video.`);
+      setErrorMsg(`⚠️ File size exceeds ${MAX_SIZE_MB}MB limit! Please select a file under 600MB.`);
       return;
     }
 
-    // 2. Duration check: Max 20 seconds
+    // 2. Duration check: Max 15 seconds
     const url = URL.createObjectURL(file);
     const tempVideo = document.createElement('video');
     tempVideo.src = url;
     tempVideo.onloadedmetadata = () => {
-      if (tempVideo.duration > 20.5) { // 20 sec limit
-        setErrorMsg(`⚠️ Video duration is ${Math.round(tempVideo.duration)}s. Maximum allowed duration is 20 seconds!`);
+      if (tempVideo.duration > 15.5) { // 15 sec limit
+        setErrorMsg(`⚠️ Video duration is ${Math.round(tempVideo.duration)}s. Maximum allowed duration is 15 seconds!`);
         URL.revokeObjectURL(url);
         return;
       }
@@ -56,7 +56,8 @@ export const UploadModal = ({ onClose, onUploadSuccess }) => {
     await onUploadSuccess(videoFile, {
       caption: caption.trim(),
       hashtags: selectedTags,
-      song: songName
+      song: songName,
+      previewUrl: videoPreviewUrl
     });
     setIsUploading(false);
   };
@@ -66,7 +67,7 @@ export const UploadModal = ({ onClose, onUploadSuccess }) => {
       <div className="bottom-sheet" style={{ maxHeight: '90%', borderRadius: '24px 24px 0 0' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Film size={20} color="#e11d48" /> Upload Reel
+            <Film size={20} color="#e11d48" /> Upload 4K Reel
           </span>
           <button className="close-btn" onClick={onClose}><X size={18} /></button>
         </div>
@@ -97,8 +98,8 @@ export const UploadModal = ({ onClose, onUploadSuccess }) => {
               <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(225, 29, 72, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto' }}>
                 <Video size={28} color="#e11d48" />
               </div>
-              <div style={{ fontWeight: 700, fontSize: '16px', color: '#fff', marginBottom: '4px' }}>Select Video Clip</div>
-              <div style={{ fontSize: '12px', color: '#94a3b8' }}>Max 20 seconds duration & 100MB size</div>
+              <div style={{ fontWeight: 700, fontSize: '16px', color: '#fff', marginBottom: '4px' }}>Select 4K Video Clip</div>
+              <div style={{ fontSize: '12px', color: '#94a3b8' }}>Supports up to 4K resolution • Max 15 sec • Max 600MB</div>
               <input ref={fileInputRef} type="file" accept="video/*" onChange={handleFileChange} style={{ display: 'none' }} />
             </div>
           ) : (
@@ -135,7 +136,6 @@ export const UploadModal = ({ onClose, onUploadSuccess }) => {
             <input type="text" className="form-input" value={songName} onChange={(e) => setSongName(e.target.value)} placeholder="🎵 e.g. Original Sound" />
           </div>
 
-          {/* Premium Upload Button UI */}
           <button
             type="submit"
             disabled={isUploading}
@@ -158,7 +158,7 @@ export const UploadModal = ({ onClose, onUploadSuccess }) => {
             }}
           >
             {isUploading ? (
-              <>⏳ Uploading to cloud...</>
+              <>⏳ Starting Live Upload...</>
             ) : (
               <><Upload size={20} /> Post Reel to Feed</>
             )}
