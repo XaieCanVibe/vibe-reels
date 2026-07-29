@@ -420,9 +420,8 @@ export default function App() {
             onFollowToggle={handleFollowToggle}
             onRefresh={loadFeed}
           />
-        )
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── Discover ── */}
       {activeTab === 'discover' && (
