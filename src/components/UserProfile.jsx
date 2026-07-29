@@ -1,10 +1,20 @@
 import React, { useState, useRef } from 'react';
-import { Grid, Heart, Film, Edit3, LogOut, Sparkles, User, Check, X, Camera, AlertCircle } from 'lucide-react';
+import { Grid, Heart, Film, Edit3, LogOut, Sparkles, User, Check, X, Camera, AlertCircle, MoreVertical, Trash2, UserPlus, UserCheck } from 'lucide-react';
 import { updateProfile, uploadAvatar } from '../services/supabaseService';
 
-export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel, onSignOut }) => {
+export const UserProfile = ({
+  user,
+  currentUserId,
+  userReels = [],
+  onSelectReel,
+  onSignOut,
+  isFollowing = false,
+  onFollowToggle,
+  onDeleteReel
+}) => {
   const [activeTab, setActiveTab] = useState('uploads'); // 'uploads' | 'liked'
   const [isEditing, setIsEditing] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [avatarFile, setAvatarFile] = useState(null);
@@ -35,7 +45,6 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
     const file = e.target.files[0];
     if (!file) return;
 
-    // Check Max 5MB file size limit
     if (file.size > 5 * 1024 * 1024) {
       setEditError('⚠️ Profile picture must be under 5MB!');
       return;
@@ -52,7 +61,6 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
 
     let newAvatarUrl = user.avatar_url;
 
-    // 1. Upload avatar if selected (max 5MB)
     if (avatarFile) {
       const avatarRes = await uploadAvatar(user.id, avatarFile);
       if (avatarRes?.error) {
@@ -65,7 +73,6 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
       }
     }
 
-    // 2. Update profile name & bio
     const { data, error } = await updateProfile(user.id, {
       name: name.trim(),
       bio: bio.trim(),
@@ -84,8 +91,86 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
   };
 
   return (
-    <div className="profile-screen" style={{ flex: 1, overflowY: 'auto', background: '#09090b', color: '#fff', padding: '20px' }}>
+    <div className="profile-screen" style={{ flex: 1, overflowY: 'auto', background: '#09090b', color: '#fff', padding: '20px', position: 'relative' }}>
       
+      {/* Top 3-Dots Menu Button (For Own Profile) */}
+      {isOwnProfile && (
+        <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 100 }}>
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            style={{
+              background: 'rgba(255,255,255,0.1)',
+              border: 'none',
+              color: '#fff',
+              padding: '8px',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <MoreVertical size={20} />
+          </button>
+
+          {showMenu && (
+            <div style={{
+              position: 'absolute',
+              top: '40px',
+              right: '0',
+              background: '#18181b',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: '12px',
+              padding: '6px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+              minWidth: '150px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
+            }}>
+              <button
+                onClick={() => { setShowMenu(false); setEditError(''); setIsEditing(true); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <Edit3 size={15} /> Edit Profile
+              </button>
+              <button
+                onClick={() => { setShowMenu(false); onSignOut(); }}
+                style={{
+                  background: 'rgba(225,29,72,0.12)',
+                  border: 'none',
+                  color: '#fda4af',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <LogOut size={15} /> Sign Out
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Guest Mode Banner */}
       {isGuest && (
         <div style={{
@@ -139,7 +224,7 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
           </div>
         </div>
 
-        {/* Real Stats Bar - nullish coalescing */}
+        {/* Real Stats Bar */}
         <div className="profile-stats" style={{ display: 'flex', justifyContent: 'center', gap: '32px', margin: '16px 0' }}>
           <div className="stat-box" style={{ textAlign: 'center' }}>
             <span className="stat-value" style={{ display: 'block', fontSize: '18px', fontWeight: '800' }}>
@@ -166,50 +251,30 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
           {user?.bio || (isGuest ? 'Guest user account' : 'No bio added yet.')}
         </p>
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
-          {isOwnProfile && (
+        {/* Action Buttons for Other Profiles */}
+        {!isOwnProfile && !isGuest && (
+          <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
             <button
-              onClick={() => { setEditError(''); setIsEditing(true); }}
+              onClick={() => onFollowToggle && onFollowToggle(user.id)}
               style={{
-                padding: '8px 18px',
+                padding: '10px 24px',
                 borderRadius: '20px',
-                border: '1px solid rgba(255,255,255,0.2)',
-                background: 'rgba(255,255,255,0.08)',
+                border: isFollowing ? '1px solid rgba(255,255,255,0.2)' : 'none',
+                background: isFollowing ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, #e11d48, #be123c)',
                 color: '#fff',
-                fontWeight: 600,
-                fontSize: '13px',
+                fontWeight: 700,
+                fontSize: '14px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer'
+                gap: '8px',
+                cursor: 'pointer',
+                boxShadow: isFollowing ? 'none' : '0 4px 14px rgba(225, 29, 72, 0.4)'
               }}
             >
-              <Edit3 size={14} /> Edit Profile
+              {isFollowing ? <><UserCheck size={16} /> Following</> : <><UserPlus size={16} /> Follow</>}
             </button>
-          )}
-
-          {!isGuest && (
-            <button
-              onClick={onSignOut}
-              style={{
-                padding: '8px 18px',
-                borderRadius: '20px',
-                border: '1px solid rgba(225, 29, 72, 0.4)',
-                background: 'rgba(225, 29, 72, 0.15)',
-                color: '#fda4af',
-                fontWeight: 600,
-                fontSize: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              <LogOut size={14} /> Sign Out
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Edit Profile Modal */}
@@ -228,7 +293,6 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
             )}
 
             <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '6px' }}>
-              {/* Profile Picture Upload Section (Max 5MB) */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                 <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => avatarInputRef.current?.click()}>
                   <img
@@ -334,7 +398,6 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
             <div
               key={reel.id}
               className="grid-item"
-              onClick={() => onSelectReel && onSelectReel(reel)}
               style={{ position: 'relative', aspectRatio: '9/16', background: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer' }}
             >
               <video
@@ -343,11 +406,43 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 muted
                 playsInline
+                onClick={() => onSelectReel && onSelectReel(reel)}
               />
-              <div className="grid-likes-overlay" style={{ position: 'absolute', bottom: '6px', left: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+              <div className="grid-likes-overlay" style={{ position: 'absolute', bottom: '6px', left: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.8)', pointerEvents: 'none' }}>
                 <Heart size={12} fill="#fff" color="#fff" />
                 <span>{reel.likes_count ?? reel.likesCount ?? 0}</span>
               </div>
+
+              {/* Delete Reel Button for Own Profile */}
+              {isOwnProfile && activeTab === 'uploads' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm('Are you sure you want to delete this reel?')) {
+                      onDeleteReel && onDeleteReel(reel.id);
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '6px',
+                    right: '6px',
+                    background: 'rgba(225, 29, 72, 0.85)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '28px',
+                    height: '28px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.5)'
+                  }}
+                  title="Delete Reel"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
             </div>
           ))}
         </div>

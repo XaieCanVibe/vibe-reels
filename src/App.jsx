@@ -19,9 +19,14 @@ import {
   getComments,
   addComment as supabaseAddComment,
   uploadReel,
-  incrementViews
+  deleteReel,
+  incrementViews,
+  followUser,
+  unfollowUser,
+  getFollowingIds,
+  getNotifications
 } from './services/supabaseService';
-import { Compass, MessageSquare, Sparkles, Flame, Search, LogOut, Loader2, WifiOff, X } from 'lucide-react';
+import { Compass, MessageSquare, Sparkles, Flame, Search, LogOut, Loader2, WifiOff, X, Heart, UserPlus, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
@@ -30,7 +35,10 @@ export default function App() {
 
   const [reels, setReels] = useState([]);
   const [likedIds, setLikedIds] = useState(new Set());
+  const [followingIds, setFollowingIds] = useState(new Set());
+  const [notifications, setNotifications] = useState([]);
   const [feedLoading, setFeedLoading] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState('home');
   const [feedSubTab, setFeedSubTab] = useState('foryou');
@@ -40,8 +48,10 @@ export default function App() {
   const [activeShareReel, setActiveShareReel] = useState(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [guestUploadNotice, setGuestUploadNotice] = useState(false);
-  const [showAuthOverlay, setShowAuthOverlay] = useState(false); // guest → login overlay
+  
+  // Guest restrictions modal state: null | 'like' | 'comment' | 'upload' | 'follow'
+  const [guestNoticeType, setGuestNoticeType] = useState(null);
+  const [showAuthOverlay, setShowAuthOverlay] = useState(false);
 
   const isGuest = !!(authUser?.isGuest || authUser?.id?.toString().startsWith('guest-'));
 
@@ -61,44 +71,60 @@ export default function App() {
       setAuthLoading(false);
     });
     return unsub;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ── LOAD FEED ────────────────────────────────────────────────────────────────
+  // ── LOAD FEED & FOLLOWS ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!authUser) return;
     loadFeed();
-  }, [authUser]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authUser]);
 
   const loadFeed = async () => {
     setFeedLoading(true);
-    const [feedData, liked] = await Promise.all([
+    const [feedData, liked, follows] = await Promise.all([
       getFeedReels(),
-      getLikedReelIds(authUser?.id)
+      getLikedReelIds(authUser?.id),
+      getFollowingIds(authUser?.id)
     ]);
     setReels(feedData);
     setLikedIds(new Set(liked));
+    setFollowingIds(new Set(follows));
     setFeedLoading(false);
+  };
+
+  // Load notifications when inbox is opened
+  useEffect(() => {
+    if (activeTab === 'inbox' && authUser && !isGuest) {
+      loadNotifications();
+    }
+  }, [activeTab, authUser]);
+
+  const loadNotifications = async () => {
+    setNotifLoading(true);
+    const notifs = await getNotifications(authUser.id);
+    setNotifications(notifs);
+    setNotifLoading(false);
   };
 
   // ── LIKE / UNLIKE ────────────────────────────────────────────────────────────
   const handleLike = async (reelId) => {
-    const alreadyLiked = likedIds.has(reelId);
-    const newLikedIds = new Set(likedIds);
-
     if (isGuest) {
-      // Show heart animation locally — don't update DB or reel count
-      if (alreadyLiked) newLikedIds.delete(reelId);
-      else newLikedIds.add(reelId);
-      setLikedIds(newLikedIds);
+      setGuestNoticeType('like');
       return;
     }
 
-    // Logged-in optimistic update
+    const alreadyLiked = likedIds.has(reelId);
+    const newLikedIds = new Set(likedIds);
+    const targetReel = reels.find((r) => r.id === reelId);
+    const reelOwnerId = targetReel?.user_id || targetReel?.profiles?.id;
+
+    // Optimistic update
     setReels((prev) => prev.map((r) =>
       r.id === reelId
-        ? { ...r, likes_count: (r.likes_count || 0) + (alreadyLiked ? -1 : 1) }
+        ? { ...r, likes_count: Math.max(0, (r.likes_count || 0) + (alreadyLiked ? -1 : 1)) }
         : r
     ));
+
     if (alreadyLiked) {
       newLikedIds.delete(reelId);
       setLikedIds(newLikedIds);
@@ -106,7 +132,7 @@ export default function App() {
     } else {
       newLikedIds.add(reelId);
       setLikedIds(newLikedIds);
-      await likeReel(authUser.id, reelId);
+      await likeReel(authUser.id, reelId, reelOwnerId);
     }
   };
 
@@ -118,12 +144,63 @@ export default function App() {
   };
 
   const handleAddComment = async (reelId, text) => {
-    const { data, error } = await supabaseAddComment(authUser.id, reelId, text);
+    if (isGuest) {
+      setGuestNoticeType('comment');
+      return;
+    }
+
+    const targetReel = reels.find((r) => r.id === reelId);
+    const reelOwnerId = targetReel?.user_id || targetReel?.profiles?.id;
+
+    const { data, error } = await supabaseAddComment(authUser.id, reelId, text, reelOwnerId);
     if (!error && data) {
       setReelComments((prev) => [data, ...prev]);
       setReels((prev) => prev.map((r) =>
         r.id === reelId ? { ...r, comments_count: (r.comments_count || 0) + 1 } : r
       ));
+    }
+  };
+
+  // ── FOLLOW / UNFOLLOW ────────────────────────────────────────────────────────
+  const handleFollowToggle = async (targetUserId) => {
+    if (isGuest) {
+      setGuestNoticeType('follow');
+      return;
+    }
+
+    const isFollowing = followingIds.has(targetUserId);
+    const newFollowingIds = new Set(followingIds);
+
+    if (isFollowing) {
+      newFollowingIds.delete(targetUserId);
+      setFollowingIds(newFollowingIds);
+      await unfollowUser(authUser.id, targetUserId);
+      if (selectedUser && selectedUser.id === targetUserId) {
+        setSelectedUser((prev) => ({
+          ...prev,
+          followers_count: Math.max(0, (prev.followers_count || 1) - 1)
+        }));
+      }
+    } else {
+      newFollowingIds.add(targetUserId);
+      setFollowingIds(newFollowingIds);
+      await followUser(authUser.id, targetUserId);
+      if (selectedUser && selectedUser.id === targetUserId) {
+        setSelectedUser((prev) => ({
+          ...prev,
+          followers_count: (prev.followers_count || 0) + 1
+        }));
+      }
+    }
+  };
+
+  // ── DELETE REEL ──────────────────────────────────────────────────────────────
+  const handleDeleteReel = async (reelId) => {
+    const { error } = await deleteReel(authUser.id, reelId);
+    if (!error) {
+      setReels((prev) => prev.filter((r) => r.id !== reelId));
+    } else {
+      alert('Could not delete reel: ' + error.message);
     }
   };
 
@@ -134,7 +211,7 @@ export default function App() {
 
   // ── UPLOAD GUARD ─────────────────────────────────────────────────────────────
   const handleOpenUpload = () => {
-    if (isGuest) setGuestUploadNotice(true);
+    if (isGuest) setGuestNoticeType('upload');
     else setIsUploadOpen(true);
   };
 
@@ -162,6 +239,7 @@ export default function App() {
     setProfile(null);
     setReels([]);
     setLikedIds(new Set());
+    setFollowingIds(new Set());
     setShowAuthOverlay(false);
   };
 
@@ -214,12 +292,6 @@ export default function App() {
       {activeTab === 'home' && (
         <div style={{ position: 'relative' }}>
           <TopNav activeFeedTab={feedSubTab} onFeedTabChange={setFeedSubTab} />
-          <button
-            onClick={handleSignOut}
-            style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', padding: '6px 10px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', zIndex: 50 }}
-          >
-            <LogOut size={14} /> Out
-          </button>
         </div>
       )}
 
@@ -244,6 +316,8 @@ export default function App() {
             onOpenShare={(reel) => setActiveShareReel(reel)}
             onSelectUser={handleSelectUser}
             onVideoChange={handleVideoChange}
+            isGuest={isGuest}
+            onGuestAction={(action) => setGuestNoticeType(action)}
           />
         )
       )}
@@ -276,14 +350,64 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Inbox ── */}
+      {/* ── Inbox (Notifications) ── */}
       {activeTab === 'inbox' && (
-        <div style={{ flex: 1, padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#09090b', color: '#94a3b8' }}>
-          <MessageSquare size={48} style={{ marginBottom: '12px', opacity: 0.4 }} />
-          <div style={{ fontSize: '16px', fontWeight: '700', color: '#fff' }}>Notifications</div>
-          <div style={{ fontSize: '13px', marginTop: '6px', textAlign: 'center' }}>
-            When your friends like or comment on your reels, notifications will appear here!
+        <div style={{ flex: 1, padding: '20px', overflowY: 'auto', background: '#09090b', color: '#fff' }}>
+          <div style={{ fontFamily: 'Outfit, sans-serif', fontSize: '22px', fontWeight: '800', marginBottom: '16px' }}>
+            Notifications
           </div>
+
+          {isGuest ? (
+            <div style={{ textAlign: 'center', color: '#94a3b8', padding: '60px 20px' }}>
+              <MessageSquare size={48} style={{ marginBottom: '12px', opacity: 0.4 }} />
+              <div style={{ fontSize: '16px', fontWeight: '700', color: '#fff' }}>Log in to view notifications</div>
+              <div style={{ fontSize: '13px', marginTop: '6px', marginBottom: '20px' }}>
+                Notifications land here when people like or comment on your reels!
+              </div>
+              <button
+                onClick={() => setShowAuthOverlay(true)}
+                style={{ background: 'linear-gradient(135deg, #e11d48, #be123c)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                🔑 Log In
+              </button>
+            </div>
+          ) : notifLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+              <Loader2 size={24} color="#e11d48" style={{ animation: 'spin 1s linear infinite' }} />
+            </div>
+          ) : notifications.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#94a3b8', padding: '60px 20px' }}>
+              <MessageSquare size={48} style={{ marginBottom: '12px', opacity: 0.4 }} />
+              <div style={{ fontSize: '16px', fontWeight: '700', color: '#fff' }}>No notifications yet</div>
+              <div style={{ fontSize: '13px', marginTop: '6px' }}>
+                When someone likes, comments on your reels, or follows you, it will show here!
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {notifications.map((n) => (
+                <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.05)', padding: '12px 14px', borderRadius: '14px' }}>
+                  <img
+                    src={n.actor?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${n.actor?.username || 'user'}`}
+                    alt="Actor"
+                    style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover' }}
+                  />
+                  <div style={{ flex: 1, fontSize: '13px' }}>
+                    <span style={{ fontWeight: '700', color: '#fff' }}>@{n.actor?.username || 'someone'}</span>{' '}
+                    {n.type === 'like' && 'liked your reel ❤️'}
+                    {n.type === 'comment' && 'commented on your reel 💬'}
+                    {n.type === 'follow' && 'started following you 👤'}
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                      {new Date(n.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                  {n.reel?.video_url && (
+                    <video src={n.reel.video_url} style={{ width: '36px', height: '48px', objectFit: 'cover', borderRadius: '6px' }} muted playsInline />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -295,6 +419,9 @@ export default function App() {
           userReels={reelsWithLiked}
           onSelectReel={() => setActiveTab('home')}
           onSignOut={handleSignOut}
+          isFollowing={followingIds.has((selectedUser || profile || authUser)?.id)}
+          onFollowToggle={handleFollowToggle}
+          onDeleteReel={handleDeleteReel}
         />
       )}
 
@@ -323,23 +450,26 @@ export default function App() {
         <UploadModal onClose={() => setIsUploadOpen(false)} onUploadSuccess={handleUploadSuccess} />
       )}
 
-      {/* Guest Upload Restriction */}
-      {guestUploadNotice && (
-        <div className="modal-overlay" onClick={() => setGuestUploadNotice(false)}>
+      {/* Guest Restriction Notice Modal */}
+      {guestNoticeType && (
+        <div className="modal-overlay" onClick={() => setGuestNoticeType(null)}>
           <div className="bottom-sheet" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', padding: '24px', maxWidth: '380px', borderRadius: '24px' }}>
             <div style={{ fontSize: '48px', marginBottom: '8px' }}>🚫</div>
             <div style={{ fontFamily: 'Outfit, sans-serif', fontSize: '20px', fontWeight: '800', color: '#fff', marginBottom: '8px' }}>
-              Guests Cannot Upload Videos
+              {guestNoticeType === 'upload' && 'Guests Cannot Upload Videos'}
+              {guestNoticeType === 'like' && 'Guests Cannot Like Reels'}
+              {guestNoticeType === 'comment' && 'Guests Cannot Comment'}
+              {guestNoticeType === 'follow' && 'Guests Cannot Follow Users'}
             </div>
             <div style={{ color: '#94a3b8', fontSize: '13px', lineHeight: 1.5, marginBottom: '20px' }}>
-              Guest accounts can watch, like, and read comments, but uploading is reserved for registered accounts!
+              Guest accounts can watch videos, but {guestNoticeType}ing is reserved for registered accounts. Log in or create an account in 10 seconds!
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={() => setGuestUploadNotice(false)} style={{ flex: 1, background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: '600', cursor: 'pointer' }}>
+              <button onClick={() => setGuestNoticeType(null)} style={{ flex: 1, background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: '600', cursor: 'pointer' }}>
                 Close
               </button>
               <button
-                onClick={() => { setGuestUploadNotice(false); setShowAuthOverlay(true); }}
+                onClick={() => { setGuestNoticeType(null); setShowAuthOverlay(true); }}
                 style={{ flex: 1, background: 'linear-gradient(135deg, #e11d48, #be123c)', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}
               >
                 🔑 Log In / Register
@@ -360,7 +490,7 @@ export default function App() {
           </button>
           <AuthScreen onAuthSuccess={(user) => {
             setAuthUser(user);
-            if (!user.isGuest) setProfile(null); // will be fetched by auth listener
+            if (!user.isGuest) setProfile(null);
             setShowAuthOverlay(false);
           }} />
         </div>

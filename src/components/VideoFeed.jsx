@@ -8,7 +8,9 @@ export const VideoFeed = ({
   onOpenComments,
   onOpenShare,
   onSelectUser,
-  onVideoChange
+  onVideoChange,
+  isGuest = false,
+  onGuestAction
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef(null);
@@ -38,7 +40,6 @@ export const VideoFeed = ({
     <div className="video-feed" ref={containerRef}>
       {reels.map((reel, index) => {
         const isLiked = reel.isLiked;
-        // Supabase stores creator info in reel.profiles (joined)
         const creator = reel.profiles || reel.user || {};
         const avatarUrl = creator.avatar_url || creator.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${creator.username}`;
 
@@ -48,7 +49,13 @@ export const VideoFeed = ({
             <VideoPlayer
               video={{ ...reel, videoUrl: reel.video_url || reel.videoUrl }}
               isActive={index === activeIndex}
-              onLike={onLike}
+              onLike={(reelId) => {
+                if (isGuest) {
+                  onGuestAction && onGuestAction('like');
+                } else {
+                  onLike(reelId);
+                }
+              }}
             />
 
             {/* Video Dark Gradient Overlay */}
@@ -100,7 +107,13 @@ export const VideoFeed = ({
                 {/* Like Button */}
                 <button
                   className={`action-btn ${isLiked ? 'liked' : ''}`}
-                  onClick={() => onLike(reel.id)}
+                  onClick={() => {
+                    if (isGuest) {
+                      onGuestAction && onGuestAction('like');
+                    } else {
+                      onLike(reel.id);
+                    }
+                  }}
                 >
                   <div className="icon-wrapper">
                     <Heart size={26} fill={isLiked ? '#e11d48' : 'none'} color={isLiked ? '#e11d48' : '#ffffff'} />

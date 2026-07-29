@@ -52,7 +52,7 @@ export const updateProfile = async (userId, updates) => {
   return { data, error };
 };
 
-// Upload profile picture (Max 5MB enforced on client side too)
+// Upload profile picture (Max 5MB)
 export const uploadAvatar = async (userId, file) => {
   if (!isSupabaseConfigured || !userId) return { url: null, error: { message: 'Not configured' } };
   const ext = file.name.split('.').pop();
@@ -71,7 +71,7 @@ export const getFeedReels = async () => {
   if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from('reels')
-    .select(`*, profiles(id, username, name, avatar_url, bio, is_verified)`)
+    .select(`*, profiles(id, username, name, avatar_url, bio, is_verified, followers_count, following_count)`)
     .order('created_at', { ascending: false })
     .limit(50);
   return error ? [] : data;
@@ -81,7 +81,7 @@ export const getUserReels = async (userId) => {
   if (!isSupabaseConfigured || !userId) return [];
   const { data, error } = await supabase
     .from('reels')
-    .select(`*, profiles(id, username, name, avatar_url, bio, is_verified)`)
+    .select(`*, profiles(id, username, name, avatar_url, bio, is_verified, followers_count, following_count)`)
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   return error ? [] : data;
@@ -103,19 +103,29 @@ export const uploadReel = async (userId, file, metadata) => {
       hashtags: metadata.hashtags || [],
       song: metadata.song || '🎵 Original Sound'
     })
-    .select(`*, profiles(id, username, name, avatar_url, bio, is_verified)`)
+    .select(`*, profiles(id, username, name, avatar_url, bio, is_verified, followers_count, following_count)`)
     .single();
   return { data, error };
 };
 
-// Increment view count — called whenever a reel becomes active (works for guests too)
+export const deleteReel = async (userId, reelId) => {
+  if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) {
+    return { error: { message: 'Guests cannot delete reels' } };
+  }
+  const { error } = await supabase
+    .from('reels')
+    .delete()
+    .eq('id', reelId)
+    .eq('user_id', userId);
+  return { error };
+};
+
+// Increment view count
 export const incrementViews = async (reelId) => {
   if (!isSupabaseConfigured || !reelId) return;
   try {
     await supabase.rpc('increment_views', { reel_id: reelId });
-  } catch (_) {
-    // Silently fail — views are non-critical
-  }
+  } catch (_) {}
 };
 
 // ─── LIKES ───────────────────────────────────────────────────────────────────
@@ -129,12 +139,14 @@ export const getLikedReelIds = async (userId) => {
   return error ? [] : data.map((l) => l.reel_id);
 };
 
-export const likeReel = async (userId, reelId) => {
+export const likeReel = async (userId, reelId, reelOwnerId = null) => {
   if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) return;
   const { error } = await supabase.from('likes').insert({ user_id: userId, reel_id: reelId });
   if (!error) {
-    // Increment likes_count on reel
     await supabase.rpc('increment_likes', { reel_id: reelId });
+    if (reelOwnerId && reelOwnerId !== userId) {
+      await createNotification(reelOwnerId, userId, 'like', reelId);
+    }
   }
 };
 
@@ -150,23 +162,86 @@ export const getComments = async (reelId) => {
   if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from('comments')
-    .select(`*, profiles(username, avatar_url)`)
+    .select(`*, profiles(username, avatar_url, name)`)
     .eq('reel_id', reelId)
     .order('created_at', { ascending: false });
   return error ? [] : data;
 };
 
-export const addComment = async (userId, reelId, text) => {
+export const addComment = async (userId, reelId, text, reelOwnerId = null) => {
   if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) {
     return { error: { message: 'Guests cannot comment. Please log in!' } };
   }
   const { data, error } = await supabase
     .from('comments')
     .insert({ user_id: userId, reel_id: reelId, text })
-    .select(`*, profiles(username, avatar_url)`)
+    .select(`*, profiles(username, avatar_url, name)`)
     .single();
   if (!error) {
     await supabase.rpc('increment_comments', { reel_id: reelId });
+    if (reelOwnerId && reelOwnerId !== userId) {
+      await createNotification(reelOwnerId, userId, 'comment', reelId);
+    }
   }
   return { data, error };
+};
+
+// ─── FOLLOWS ─────────────────────────────────────────────────────────────────
+
+export const followUser = async (followerId, followingId) => {
+  if (!isSupabaseConfigured || !followerId || followerId.startsWith('guest-')) return false;
+  if (followerId === followingId) return false;
+  const { error } = await supabase.from('follows').insert({ follower_id: followerId, following_id: followingId });
+  if (!error) {
+    await supabase.rpc('increment_followers', { target_user_id: followingId });
+    await supabase.rpc('increment_following', { target_user_id: followerId });
+    await createNotification(followingId, followerId, 'follow', null);
+    return true;
+  }
+  return false;
+};
+
+export const unfollowUser = async (followerId, followingId) => {
+  if (!isSupabaseConfigured || !followerId || followerId.startsWith('guest-')) return false;
+  const { error } = await supabase.from('follows').delete().match({ follower_id: followerId, following_id: followingId });
+  if (!error) {
+    await supabase.rpc('decrement_followers', { target_user_id: followingId });
+    await supabase.rpc('decrement_following', { target_user_id: followerId });
+    return true;
+  }
+  return false;
+};
+
+export const getFollowingIds = async (followerId) => {
+  if (!isSupabaseConfigured || !followerId || followerId.startsWith('guest-')) return [];
+  const { data, error } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', followerId);
+  return error ? [] : data.map((f) => f.following_id);
+};
+
+// ─── NOTIFICATIONS ───────────────────────────────────────────────────────────
+
+export const createNotification = async (userId, actorId, type, reelId = null) => {
+  if (!isSupabaseConfigured || !userId || !actorId || userId === actorId || actorId.startsWith('guest-')) return;
+  try {
+    await supabase.from('notifications').insert({
+      user_id: userId,
+      actor_id: actorId,
+      type,
+      reel_id: reelId
+    });
+  } catch (_) {}
+};
+
+export const getNotifications = async (userId) => {
+  if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) return [];
+  const { data, error } = await supabase
+    .from('notifications')
+    .select(`*, actor:profiles!actor_id(username, name, avatar_url), reel:reels(video_url)`)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(30);
+  return error ? [] : data;
 };
