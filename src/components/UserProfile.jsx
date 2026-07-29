@@ -1,6 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { Grid, Heart, Film, Edit3, LogOut, Sparkles, User, Check, X, Camera, AlertCircle, MoreVertical, Trash2, UserPlus, UserCheck, Play } from 'lucide-react';
-import { updateProfile, uploadAvatar } from '../services/supabaseService';
+import {
+  Grid, Heart, Film, Edit3, LogOut, Sparkles, User, Check, X, Camera,
+  AlertCircle, MoreVertical, Trash2, UserPlus, UserCheck, Play,
+  Settings, ShieldCheck, Star, Mail, Phone, UserX, ChevronRight, Info
+} from 'lucide-react';
+import { updateProfile, uploadAvatar, deleteAccount } from '../services/supabaseService';
 
 export const UserProfile = ({
   user,
@@ -12,14 +16,17 @@ export const UserProfile = ({
   onFollowToggle,
   onDeleteReel
 }) => {
-  const [activeTab, setActiveTab] = useState('uploads'); // 'uploads' | 'liked'
+  const [activeTab, setActiveTab] = useState('uploads');
   const [isEditing, setIsEditing] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [editError, setEditError] = useState('');
   const avatarInputRef = useRef(null);
 
@@ -32,7 +39,6 @@ export const UserProfile = ({
   const likedReels = userReels.filter((r) => r.isLiked);
   const displayList = activeTab === 'uploads' ? myUploads : likedReels;
 
-  // Real total likes calculation across uploaded reels
   const totalLikesOnUploads = myUploads.reduce(
     (sum, r) => sum + (r.likes_count ?? r.likesCount ?? 0),
     0
@@ -97,6 +103,21 @@ export const UserProfile = ({
     setIsSaving(false);
   };
 
+  const handleDeleteAccountPermanent = async () => {
+    const confirmMessage = "⚠️ PERMANENT DELETE WARNING:\n\nAre you sure you want to delete your account?\n\nThis will PERMANENTLY remove:\n• Your profile info & avatar\n• All your uploaded reels\n• All your comments, likes, and followers\n\nThis action CANNOT be undone!";
+    if (window.confirm(confirmMessage)) {
+      setIsDeletingAccount(true);
+      const { error } = await deleteAccount(user.id);
+      if (!error) {
+        alert('Your account and all associated data have been permanently deleted.');
+        onSignOut();
+      } else {
+        alert('Failed to delete account: ' + (error.message || 'Error'));
+        setIsDeletingAccount(false);
+      }
+    }
+  };
+
   return (
     <div className="profile-screen" style={{ flex: 1, overflowY: 'auto', background: '#09090b', color: '#fff', padding: '20px', position: 'relative' }}>
       
@@ -127,10 +148,10 @@ export const UserProfile = ({
               right: '0',
               background: '#18181b',
               border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: '12px',
+              borderRadius: '14px',
               padding: '6px',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-              minWidth: '150px',
+              boxShadow: '0 12px 32px rgba(0,0,0,0.7)',
+              minWidth: '170px',
               display: 'flex',
               flexDirection: 'column',
               gap: '4px'
@@ -154,6 +175,29 @@ export const UserProfile = ({
               >
                 <Edit3 size={15} /> Edit Profile
               </button>
+
+              <button
+                onClick={() => { setShowMenu(false); setShowSettingsModal(true); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <Settings size={15} /> Settings & Privacy
+              </button>
+
+              <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '2px 0' }} />
+
               <button
                 onClick={() => { setShowMenu(false); onSignOut(); }}
                 style={{
@@ -192,7 +236,7 @@ export const UserProfile = ({
             <Sparkles size={18} /> You are Browsing as Guest
           </div>
           <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px', marginBottom: '12px', lineHeight: 1.4 }}>
-            Create a real account to save your uploaded reels, bio, and likes permanently across all devices!
+            Guest accounts automatically clear after 1 hour. Create a permanent account to keep uploaded reels and likes!
           </div>
           <button
             onClick={onSignOut}
@@ -340,6 +384,113 @@ export const UserProfile = ({
                 {isSaving ? 'Saving...' : 'Save Profile'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Settings & Privacy Modal */}
+      {showSettingsModal && (
+        <div className="modal-overlay" onClick={() => setShowSettingsModal(false)}>
+          <div className="bottom-sheet" onClick={(e) => e.stopPropagation()} style={{ borderRadius: '24px 24px 0 0', maxHeight: '85%' }}>
+            <div className="modal-header">
+              <span className="modal-title">⚙️ Settings & Privacy</span>
+              <button className="close-btn" onClick={() => setShowSettingsModal(false)}><X size={18} /></button>
+            </div>
+
+            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
+              
+              {/* Contact Developer */}
+              <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '14px', padding: '14px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <User size={16} color="#38bdf8" /> Contact Developer
+                </div>
+                <div style={{ fontSize: '13px', color: '#cbd5e1', lineHeight: 1.6 }}>
+                  <div><strong>Developer:</strong> Devin Rai</div>
+                  <div><strong>Email:</strong> <a href="mailto:reedweveen@gmail.com" style={{ color: '#38bdf8', textDecoration: 'none' }}>reedweveen@gmail.com</a></div>
+                  <div><strong>Phone:</strong> <em>Contact via email</em></div>
+                </div>
+              </div>
+
+              {/* Rate & Review App */}
+              <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '14px', padding: '14px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Star size={16} color="#f59e0b" /> Rate App & Send Feedback
+                </div>
+                <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '10px' }}>
+                  Send your feedback directly to the creator email: <strong>reedweveen@gmail.com</strong>
+                </div>
+                <a
+                  href="mailto:reedweveen@gmail.com?subject=VibeReels%20App%20Feedback%20%26%20Review"
+                  style={{
+                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                    color: '#fff',
+                    textDecoration: 'none',
+                    padding: '10px 16px',
+                    borderRadius: '10px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Mail size={14} /> Send Email Feedback
+                </a>
+              </div>
+
+              {/* Privacy Policy Toggle */}
+              <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '14px', padding: '14px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div
+                  onClick={() => setShowPrivacyPolicy(!showPrivacyPolicy)}
+                  style={{ fontSize: '14px', fontWeight: '700', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldCheck size={16} color="#22c55e" /> Privacy Policy
+                  </span>
+                  <ChevronRight size={16} style={{ transform: showPrivacyPolicy ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                </div>
+                {showPrivacyPolicy && (
+                  <div style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: 1.5, marginTop: '10px', background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '8px' }}>
+                    <p style={{ marginBottom: '6px' }}><strong>VibeReels Privacy Policy:</strong></p>
+                    <p style={{ marginBottom: '6px' }}>1. We only store essential data (username, display name, bio, uploaded reels, likes, comments, and avatar).</p>
+                    <p style={{ marginBottom: '6px' }}>2. Storage Limits: Profile avatars are capped at 5MB, and reels at 20s/100MB.</p>
+                    <p style={{ marginBottom: '6px' }}>3. Delete Account: You hold full ownership of your data. Deleting your account instantly purges all your uploaded reels, comments, and profile info from our database permanently.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Delete Account Permanently */}
+              <div style={{ background: 'rgba(225, 29, 72, 0.1)', borderRadius: '14px', padding: '14px', border: '1px solid rgba(225, 29, 72, 0.3)', marginTop: '8px' }}>
+                <div style={{ fontSize: '14px', fontWeight: '700', color: '#fda4af', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <UserX size={16} /> Danger Zone
+                </div>
+                <div style={{ fontSize: '12px', color: '#f87171', marginBottom: '12px', lineHeight: 1.4 }}>
+                  Deleting your account will permanently wipe your profile, uploaded videos, comments, and followers from the database.
+                </div>
+                <button
+                  onClick={handleDeleteAccountPermanent}
+                  disabled={isDeletingAccount}
+                  style={{
+                    width: '100%',
+                    background: 'linear-gradient(135deg, #e11d48, #be123c)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '12px',
+                    borderRadius: '10px',
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Trash2 size={15} /> {isDeletingAccount ? 'Deleting...' : 'Delete Account Permanently'}
+                </button>
+              </div>
+
+            </div>
           </div>
         </div>
       )}

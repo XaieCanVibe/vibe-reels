@@ -75,6 +75,30 @@ export default function App() {
     return unsub;
   }, []);
 
+  // ── AUTO-EXPIRE GUEST ACCOUNTS AFTER 1 HOUR ──────────────────────────────────
+  useEffect(() => {
+    if (!isGuest || !authUser) return;
+    let guestStart = sessionStorage.getItem('guest_created_at');
+    if (!guestStart) {
+      guestStart = Date.now().toString();
+      sessionStorage.setItem('guest_created_at', guestStart);
+    }
+
+    const checkExpiry = () => {
+      const startTime = sessionStorage.getItem('guest_created_at');
+      if (startTime && Date.now() - parseInt(startTime, 10) >= 3600000) {
+        sessionStorage.removeItem('guest_created_at');
+        sessionStorage.removeItem('guest_session_id');
+        alert('⏱️ Guest session expired after 1 hour. Please log in or register!');
+        handleSignOut();
+      }
+    };
+
+    checkExpiry();
+    const timer = setInterval(checkExpiry, 30000);
+    return () => clearInterval(timer);
+  }, [authUser, isGuest]);
+
   // ── LOAD FEED & FOLLOWS ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!authUser) return;

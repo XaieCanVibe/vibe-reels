@@ -52,6 +52,13 @@ export const updateProfile = async (userId, updates) => {
   return { data, error };
 };
 
+export const deleteAccount = async (userId) => {
+  if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) return { error: null };
+  // Deletes profile from database, triggering cascading deletes for all reels, likes, comments, follows
+  const { error } = await supabase.from('profiles').delete().eq('id', userId);
+  return { error };
+};
+
 // Upload profile picture (Max 5MB)
 export const uploadAvatar = async (userId, file) => {
   if (!isSupabaseConfigured || !userId) return { url: null, error: { message: 'Not configured' } };
