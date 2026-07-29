@@ -293,8 +293,14 @@ export default function App() {
 
   // ── SELECT USER PROFILE ──────────────────────────────────────────────────────
   const handleSelectUser = (user) => {
-    setSelectedUser(user);
-    setActiveTab('profile');
+    if (!user) return;
+    if (authUser && (user.id === authUser.id || user.id === profile?.id)) {
+      setSelectedUser(null);
+      setActiveTab('profile');
+    } else {
+      setSelectedUser(user);
+      setActiveTab('user_profile');
+    }
   };
 
   // ── SIGN OUT ─────────────────────────────────────────────────────────────────
@@ -517,18 +523,30 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Profile ── */}
+      {/* ── Own Profile ── */}
       {activeTab === 'profile' && (
         <UserProfile
-          user={selectedUser || profile || authUser}
+          user={profile || authUser}
           currentUserId={authUser?.id}
           userReels={reelsWithLiked}
           onSelectReel={() => setActiveTab('home')}
           onSignOut={handleSignOut}
-          isFollowing={followingIds.has((selectedUser || profile || authUser)?.id)}
-          onFollowToggle={handleFollowToggle}
           onDeleteReel={handleDeleteReel}
           onOpenSettings={() => setActiveTab('settings')}
+        />
+      )}
+
+      {/* ── Other User Profile (Standalone Page with Back Button, No Bottom Nav) ── */}
+      {activeTab === 'user_profile' && selectedUser && (
+        <UserProfile
+          user={selectedUser}
+          currentUserId={authUser?.id}
+          userReels={reelsWithLiked}
+          onSelectReel={() => setActiveTab('home')}
+          onSignOut={handleSignOut}
+          isFollowing={followingIds.has(selectedUser.id)}
+          onFollowToggle={handleFollowToggle}
+          onBack={() => { setSelectedUser(null); setActiveTab('home'); }}
         />
       )}
 
@@ -542,12 +560,14 @@ export default function App() {
         />
       )}
 
-      {/* Bottom Nav */}
-      <BottomNav
-        activeTab={activeTab}
-        onTabChange={(tab) => { setSelectedUser(null); setActiveTab(tab); }}
-        onOpenUpload={handleOpenUpload}
-      />
+      {/* Bottom Nav (Hidden on other user's profile and settings) */}
+      {activeTab !== 'user_profile' && activeTab !== 'settings' && (
+        <BottomNav
+          activeTab={activeTab}
+          onTabChange={(tab) => { setSelectedUser(null); setActiveTab(tab); }}
+          onOpenUpload={handleOpenUpload}
+        />
+      )}
 
       {/* ── Modals ── */}
       {activeCommentReel && (
