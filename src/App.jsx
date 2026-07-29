@@ -267,8 +267,9 @@ export default function App() {
       {/* ── Profile ── */}
       {activeTab === 'profile' && (
         <UserProfile
-          user={selectedUser || profile}
+          user={selectedUser || profile || authUser}
           currentUserId={authUser?.id}
+          userReels={reelsWithLiked}
           onSelectReel={() => setActiveTab('home')}
           onSignOut={handleSignOut}
         />
