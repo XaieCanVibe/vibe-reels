@@ -170,17 +170,19 @@ export const getComments = async (reelId) => {
   return error ? [] : data;
 };
 
-export const addComment = async (userId, reelId, text, reelOwnerId = null) => {
+export const addComment = async (userId, reelId, text, reelOwnerId = null, parentId = null) => {
   if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) {
     return { error: { message: 'Guests cannot comment. Please log in!' } };
   }
+  const insertObj = { user_id: userId, reel_id: reelId, text };
+  if (parentId) insertObj.parent_id = parentId;
   const { data, error } = await supabase
     .from('comments')
-    .insert({ user_id: userId, reel_id: reelId, text })
+    .insert(insertObj)
     .select(`*, profiles(username, avatar_url, name)`)
     .single();
   if (!error) {
-    await supabase.rpc('increment_comments', { reel_id: reelId });
+    if (!parentId) await supabase.rpc('increment_comments', { reel_id: reelId });
     if (reelOwnerId && reelOwnerId !== userId) {
       await createNotification(reelOwnerId, userId, 'comment', reelId);
     }

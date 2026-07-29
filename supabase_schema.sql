@@ -80,6 +80,7 @@ create table if not exists public.comments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references public.profiles(id) on delete cascade not null,
   reel_id uuid references public.reels(id) on delete cascade not null,
+  parent_id uuid references public.comments(id) on delete cascade, -- null = top-level, set = reply
   text text not null,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );

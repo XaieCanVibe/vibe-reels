@@ -7,6 +7,7 @@ import { UploadModal } from './components/UploadModal';
 import { ShareModal } from './components/ShareModal';
 import { UserProfile } from './components/UserProfile';
 import { AuthScreen } from './components/AuthScreen';
+import { SkeletonFeed } from './components/SkeletonLoader';
 import { isSupabaseConfigured } from './lib/supabase';
 import {
   onAuthStateChange,
@@ -144,7 +145,7 @@ export default function App() {
     setReelComments(comments);
   };
 
-  const handleAddComment = async (reelId, text) => {
+  const handleAddComment = async (reelId, text, parentId = null) => {
     if (isGuest) {
       setGuestNoticeType('comment');
       return;
@@ -153,12 +154,14 @@ export default function App() {
     const targetReel = reels.find((r) => r.id === reelId);
     const reelOwnerId = targetReel?.user_id || targetReel?.profiles?.id;
 
-    const { data, error } = await supabaseAddComment(authUser.id, reelId, text, reelOwnerId);
+    const { data, error } = await supabaseAddComment(authUser.id, reelId, text, reelOwnerId, parentId);
     if (!error && data) {
       setReelComments((prev) => [data, ...prev]);
-      setReels((prev) => prev.map((r) =>
-        r.id === reelId ? { ...r, comments_count: (r.comments_count || 0) + 1 } : r
-      ));
+      if (!parentId) {
+        setReels((prev) => prev.map((r) =>
+          r.id === reelId ? { ...r, comments_count: (r.comments_count || 0) + 1 } : r
+        ));
+      }
     }
   };
 
@@ -306,10 +309,7 @@ export default function App() {
       {/* ── Home Feed ── */}
       {activeTab === 'home' && (
         feedLoading ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '12px' }}>
-            <Loader2 size={28} color="#e11d48" style={{ animation: 'spin 1s linear infinite' }} />
-            <div style={{ color: '#64748b', fontSize: '13px' }}>Loading reels...</div>
-          </div>
+          <SkeletonFeed />
         ) : reelsWithLiked.length === 0 ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: '#64748b', padding: '32px', textAlign: 'center' }}>
             <span style={{ fontSize: '48px' }}>🎬</span>
@@ -329,6 +329,7 @@ export default function App() {
             followingIds={followingIds}
             currentUserId={authUser?.id}
             onFollowToggle={handleFollowToggle}
+            onRefresh={loadFeed}
           />
         )
       )}
