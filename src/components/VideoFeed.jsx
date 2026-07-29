@@ -36,12 +36,15 @@ export const VideoFeed = ({
     <div className="video-feed" ref={containerRef}>
       {reels.map((reel, index) => {
         const isLiked = reel.isLiked;
+        // Supabase stores creator info in reel.profiles (joined)
+        const creator = reel.profiles || reel.user || {};
+        const avatarUrl = creator.avatar_url || creator.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${creator.username}`;
 
         return (
           <div key={reel.id} className="video-card">
             {/* Main Video Component */}
             <VideoPlayer
-              video={reel}
+              video={{ ...reel, videoUrl: reel.video_url || reel.videoUrl }}
               isActive={index === activeIndex}
               onLike={onLike}
             />
@@ -52,26 +55,24 @@ export const VideoFeed = ({
               <div className="video-details">
                 <div
                   className="creator-handle"
-                  onClick={() => onSelectUser && onSelectUser(reel.user)}
+                  onClick={() => onSelectUser && onSelectUser(creator)}
                 >
-                  <span>{reel.user.name}</span>
+                  <span>{creator.name || creator.username}</span>
                   <CheckCircle2 size={15} color="#38bdf8" fill="#0284c7" />
                   <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginLeft: '4px' }}>
-                    {reel.user.username}
+                    @{creator.username}
                   </span>
                 </div>
 
                 <div className="video-caption">
                   {reel.caption}{' '}
                   {reel.hashtags?.map((tag, i) => (
-                    <span key={i} className="hashtag">
-                      {tag}{' '}
-                    </span>
+                    <span key={i} className="hashtag">{tag}{' '}</span>
                   ))}
                 </div>
 
                 <div className="audio-track-info">
-                  <Music size={14} className="music-icon-anim" />
+                  <Music size={14} />
                   <span>{reel.song || 'Original Nepali Sound'}</span>
                 </div>
               </div>
@@ -81,12 +82,13 @@ export const VideoFeed = ({
                 {/* User Avatar */}
                 <div
                   className="profile-avatar-btn"
-                  onClick={() => onSelectUser && onSelectUser(reel.user)}
+                  onClick={() => onSelectUser && onSelectUser(creator)}
                 >
                   <img
-                    src={reel.user.avatar}
-                    alt={reel.user.name}
+                    src={avatarUrl}
+                    alt={creator.username}
                     className="profile-avatar-img"
+                    onError={(e) => { e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${creator.username}`; }}
                   />
                   <div className="follow-plus-btn">
                     <Plus size={12} strokeWidth={3} />
@@ -99,44 +101,26 @@ export const VideoFeed = ({
                   onClick={() => onLike(reel.id)}
                 >
                   <div className="icon-wrapper">
-                    <Heart
-                      size={26}
-                      fill={isLiked ? '#e11d48' : 'none'}
-                      color={isLiked ? '#e11d48' : '#ffffff'}
-                    />
+                    <Heart size={26} fill={isLiked ? '#e11d48' : 'none'} color={isLiked ? '#e11d48' : '#ffffff'} />
                   </div>
-                  <span className="action-label">{reel.likesCount}</span>
+                  <span className="action-label">{reel.likes_count ?? reel.likesCount ?? 0}</span>
                 </button>
 
                 {/* Comments Button */}
-                <button
-                  className="action-btn"
-                  onClick={() => onOpenComments(reel)}
-                >
-                  <div className="icon-wrapper">
-                    <MessageCircle size={24} color="#ffffff" />
-                  </div>
-                  <span className="action-label">{reel.commentsCount}</span>
+                <button className="action-btn" onClick={() => onOpenComments(reel)}>
+                  <div className="icon-wrapper"><MessageCircle size={24} color="#ffffff" /></div>
+                  <span className="action-label">{reel.comments_count ?? reel.commentsCount ?? 0}</span>
                 </button>
 
                 {/* Share Button */}
-                <button
-                  className="action-btn"
-                  onClick={() => onOpenShare(reel)}
-                >
-                  <div className="icon-wrapper">
-                    <Share2 size={24} color="#ffffff" />
-                  </div>
-                  <span className="action-label">{reel.sharesCount || 'Share'}</span>
+                <button className="action-btn" onClick={() => onOpenShare(reel)}>
+                  <div className="icon-wrapper"><Share2 size={24} color="#ffffff" /></div>
+                  <span className="action-label">{reel.shares_count ?? reel.sharesCount ?? 'Share'}</span>
                 </button>
 
                 {/* Spinning Music Disc */}
                 <div className="music-disk">
-                  <img
-                    src={reel.user.avatar}
-                    alt="Audio track"
-                    className="music-disk-img"
-                  />
+                  <img src={avatarUrl} alt="Audio track" className="music-disk-img" onError={(e) => { e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=music`; }} />
                 </div>
               </div>
             </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Send } from 'lucide-react';
 
-export const CommentsModal = ({ reel, onClose, onAddComment }) => {
+export const CommentsModal = ({ reel, comments = [], onClose, onAddComment }) => {
   const [text, setText] = useState('');
 
   if (!reel) return null;
@@ -16,52 +16,46 @@ export const CommentsModal = ({ reel, onClose, onAddComment }) => {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
-        {/* Modal Header */}
         <div className="modal-header">
-          <span className="modal-title">
-            Comments ({reel.commentsCount || reel.comments?.length || 0})
-          </span>
-          <button className="close-btn" onClick={onClose}>
-            <X size={18} />
-          </button>
+          <span className="modal-title">Comments ({reel.comments_count || comments.length || 0})</span>
+          <button className="close-btn" onClick={onClose}><X size={18} /></button>
         </div>
 
-        {/* Comments List */}
         <div className="comments-list">
-          {(!reel.comments || reel.comments.length === 0) ? (
+          {comments.length === 0 ? (
             <div style={{ textAlign: 'center', color: '#94a3b8', padding: '40px 0', fontSize: '14px' }}>
-              No comments yet. Be the first to comment! 💬
+              No comments yet. Be the first! 💬
             </div>
           ) : (
-            reel.comments.map((comment) => (
+            comments.map((comment) => (
               <div key={comment.id} className="comment-item">
                 <img
-                  src={comment.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100'}
-                  alt={comment.user}
+                  src={comment.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.profiles?.username}`}
+                  alt={comment.profiles?.username}
                   className="comment-avatar"
+                  onError={(e) => { e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.profiles?.username}`; }}
                 />
                 <div className="comment-content">
-                  <div className="comment-user">{comment.user}</div>
+                  <div className="comment-user">@{comment.profiles?.username}</div>
                   <div className="comment-text">{comment.text}</div>
-                  <div className="comment-time">{comment.timestamp || 'Recently'}</div>
+                  <div className="comment-time">
+                    {new Date(comment.created_at).toLocaleString()}
+                  </div>
                 </div>
               </div>
             ))
           )}
         </div>
 
-        {/* Input Bar */}
         <form className="comment-input-bar" onSubmit={handleSubmit}>
           <input
             type="text"
             className="comment-input"
-            placeholder="Add a comment for your friends..."
+            placeholder="Add a comment..."
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
-          <button type="submit" className="send-comment-btn">
-            <Send size={16} />
-          </button>
+          <button type="submit" className="send-comment-btn"><Send size={16} /></button>
         </form>
       </div>
     </div>
