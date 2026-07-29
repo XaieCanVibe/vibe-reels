@@ -508,7 +508,7 @@ html, body {
   to   { transform: translateX(-50%) scale(1); }
 }
 
-/* Iconic TikTok / VibeReels Upload Button */
+/* Original VibeReels Art-Style Upload Button */
 .upload-nav-item {
   width: auto !important;
   display: flex;
@@ -516,50 +516,48 @@ html, body {
   justify-content: center;
 }
 
-.upload-btn-container {
+.vibe-upload-btn {
   position: relative;
-  width: 45px;
-  height: 30px;
+  width: 44px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.2s var(--spring);
+  transition: transform 0.22s var(--spring);
 }
 
-.upload-btn-container:active {
-  transform: scale(0.88);
+.vibe-upload-btn:active {
+  transform: scale(0.86);
 }
 
-.upload-btn-bg-cyan {
+.vibe-upload-glow {
   position: absolute;
-  left: 0;
-  width: 38px;
-  height: 30px;
-  border-radius: 9px;
-  background: #06b6d4; /* Vibrant Cyan */
+  inset: -1px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #e11d48 0%, #f59e0b 50%, #06b6d4 100%);
+  filter: blur(4px);
+  opacity: 0.85;
+  animation: vibeGlowPulse 3s infinite alternate;
 }
 
-.upload-btn-bg-pink {
-  position: absolute;
-  right: 0;
-  width: 38px;
-  height: 30px;
-  border-radius: 9px;
-  background: #e11d48; /* Nepali Crimson Pink */
+@keyframes vibeGlowPulse {
+  0%   { opacity: 0.6; filter: blur(3px); }
+  100% { opacity: 0.95; filter: blur(6px); }
 }
 
-.upload-btn-inner {
+.vibe-upload-inner {
   position: relative;
-  width: 39px;
+  width: 42px;
   height: 30px;
-  border-radius: 8px;
-  background: #ffffff;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 15px rgba(225, 29, 72, 0.5), inset 0 1px 1px rgba(255,255,255,0.4);
 }
 
 /* Modal Bottom Sheets & Popups */

@@ -24,11 +24,10 @@ export const BottomNav = ({ activeTab, onTabChange, onOpenUpload, unreadNotifCou
         className="nav-item upload-nav-item"
         onClick={onOpenUpload}
       >
-        <div className="upload-btn-container">
-          <div className="upload-btn-bg-cyan" />
-          <div className="upload-btn-bg-pink" />
-          <div className="upload-btn-inner">
-            <Plus size={18} strokeWidth={3} color="#000" />
+        <div className="vibe-upload-btn">
+          <div className="vibe-upload-glow" />
+          <div className="vibe-upload-inner">
+            <Plus size={20} strokeWidth={2.8} color="#ffffff" />
           </div>
         </div>
       </button>
@@ -43,21 +42,23 @@ export const BottomNav = ({ activeTab, onTabChange, onOpenUpload, unreadNotifCou
         {unreadNotifCount > 0 && (
           <div className="notif-badge" style={{
             position: 'absolute',
-            top: '2px',
-            right: 'calc(50% - 18px)',
-            background: 'var(--primary-nepal)',
+            top: '-4px',
+            right: 'calc(50% - 20px)',
+            background: 'linear-gradient(135deg, #e11d48, #be123c)',
+            border: '2px solid #000',
             color: '#fff',
             fontSize: '10px',
             fontWeight: '800',
-            padding: '2px 5px',
-            minWidth: '16px',
-            height: '16px',
+            padding: '1px 5px',
+            minWidth: '17px',
+            height: '17px',
             borderRadius: '10px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 8px var(--primary-nepal)',
-            lineHeight: 1
+            boxShadow: '0 2px 8px rgba(225, 29, 72, 0.6)',
+            lineHeight: 1,
+            zIndex: 10
           }}>
             {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
           </div>

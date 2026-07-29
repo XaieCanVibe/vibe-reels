@@ -486,6 +486,7 @@ export const UserProfile = ({
             <div
               key={reel.id}
               className="grid-item"
+              onClick={() => onSelectReel && onSelectReel(reel)}
               style={{ position: 'relative', aspectRatio: '9/16', background: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer' }}
             >
               <video
@@ -494,7 +495,6 @@ export const UserProfile = ({
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 muted
                 playsInline
-                onClick={() => onSelectReel && onSelectReel(reel)}
               />
               
               {/* TikTok Style View Count Overlay */}

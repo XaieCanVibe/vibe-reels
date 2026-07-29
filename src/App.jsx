@@ -40,6 +40,7 @@ export default function App() {
   const [followingIds, setFollowingIds] = useState(new Set());
   const [viewedReels, setViewedReels] = useState(new Set()); // Unique view tracking per session
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [feedLoading, setFeedLoading] = useState(false);
   const [notifLoading, setNotifLoading] = useState(false);
 
@@ -118,7 +119,12 @@ export default function App() {
     setReels(feedData);
     setLikedIds(new Set(liked));
     setFollowingIds(new Set(follows));
-    if (notifs) setNotifications(notifs);
+    if (notifs) {
+      setNotifications(notifs);
+      if (activeTab !== 'inbox') {
+        setUnreadCount(notifs.length);
+      }
+    }
     setFeedLoading(false);
   };
 
@@ -126,6 +132,7 @@ export default function App() {
   useEffect(() => {
     if (activeTab === 'inbox' && authUser && !isGuest) {
       loadNotifications();
+      setUnreadCount(0); // Clear unread badge when viewing inbox!
     }
   }, [activeTab, authUser]);
 
@@ -600,7 +607,12 @@ export default function App() {
             user={profile || authUser}
             currentUserId={authUser?.id}
             userReels={reelsWithLiked}
-            onSelectReel={() => setActiveTab('home')}
+            onSelectReel={(selectedReel) => {
+              if (selectedReel) {
+                setReels((prev) => [selectedReel, ...prev.filter((r) => r.id !== selectedReel.id)]);
+              }
+              setActiveTab('home');
+            }}
             onSignOut={handleSignOut}
             onDeleteReel={handleDeleteReel}
             onOpenSettings={() => setActiveTab('settings')}
@@ -615,7 +627,12 @@ export default function App() {
             user={selectedUser}
             currentUserId={authUser?.id}
             userReels={reelsWithLiked}
-            onSelectReel={() => setActiveTab('home')}
+            onSelectReel={(selectedReel) => {
+              if (selectedReel) {
+                setReels((prev) => [selectedReel, ...prev.filter((r) => r.id !== selectedReel.id)]);
+              }
+              setActiveTab('home');
+            }}
             onSignOut={handleSignOut}
             isFollowing={followingIds.has(selectedUser.id)}
             onFollowToggle={handleFollowToggle}
@@ -640,9 +657,13 @@ export default function App() {
       {activeTab !== 'user_profile' && activeTab !== 'settings' && (
         <BottomNav
           activeTab={activeTab}
-          onTabChange={(tab) => { setSelectedUser(null); setActiveTab(tab); }}
+          onTabChange={(tab) => {
+            setSelectedUser(null);
+            setActiveTab(tab);
+            if (tab === 'inbox') setUnreadCount(0);
+          }}
           onOpenUpload={handleOpenUpload}
-          unreadNotifCount={notifications.length}
+          unreadNotifCount={unreadCount}
         />
       )}
 
