@@ -1,15 +1,16 @@
 -- ============================================================
--- Ramailo Reels (Vibe Reels) - Supabase Database Schema
+-- VibeReels — Supabase Database Schema
 -- Run this entire script in your Supabase SQL Editor
 -- ============================================================
 
--- 1. PROFILES table (one per user, linked to auth.users)
+-- 1. PROFILES table
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text unique not null,
   name text,
   bio text,
   avatar_url text,
+  is_verified boolean default false,
   followers_count integer default 0,
   following_count integer default 0,
   likes_count integer default 0,
@@ -27,7 +28,7 @@ create policy "Users can insert their own profile" on public.profiles
 create policy "Users can update their own profile" on public.profiles
   for update using (auth.uid() = id);
 
--- 2. REELS table (video posts)
+-- 2. REELS table
 create table if not exists public.reels (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -39,6 +40,7 @@ create table if not exists public.reels (
   likes_count integer default 0,
   comments_count integer default 0,
   shares_count integer default 0,
+  views_count integer default 0,
   created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
@@ -131,3 +133,35 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- 8. RPC: increment_views (callable by anon — guests can count views)
+create or replace function public.increment_views(reel_id uuid)
+returns void as $$
+  update public.reels set views_count = coalesce(views_count, 0) + 1 where id = reel_id;
+$$ language sql security definer;
+
+grant execute on function public.increment_views(uuid) to anon, authenticated;
+
+-- 9. RPC: increment_likes
+create or replace function public.increment_likes(reel_id uuid)
+returns void as $$
+  update public.reels set likes_count = coalesce(likes_count, 0) + 1 where id = reel_id;
+$$ language sql security definer;
+
+grant execute on function public.increment_likes(uuid) to authenticated;
+
+-- 10. RPC: decrement_likes
+create or replace function public.decrement_likes(reel_id uuid)
+returns void as $$
+  update public.reels set likes_count = greatest(0, coalesce(likes_count, 0) - 1) where id = reel_id;
+$$ language sql security definer;
+
+grant execute on function public.decrement_likes(uuid) to authenticated;
+
+-- 11. RPC: increment_comments
+create or replace function public.increment_comments(reel_id uuid)
+returns void as $$
+  update public.reels set comments_count = coalesce(comments_count, 0) + 1 where id = reel_id;
+$$ language sql security definer;
+
+grant execute on function public.increment_comments(uuid) to authenticated;

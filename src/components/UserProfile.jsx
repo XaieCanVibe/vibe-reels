@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
-import { Grid, Heart, Film, Edit3, LogOut, Sparkles, User, Check, X } from 'lucide-react';
-import { updateProfile } from '../services/supabaseService';
+import React, { useState, useRef } from 'react';
+import { Grid, Heart, Film, Edit3, LogOut, Sparkles, User, Check, X, Camera, AlertCircle } from 'lucide-react';
+import { updateProfile, uploadAvatar } from '../services/supabaseService';
 
 export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel, onSignOut }) => {
   const [activeTab, setActiveTab] = useState('uploads'); // 'uploads' | 'liked'
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState('');
+  const avatarInputRef = useRef(null);
 
   const isGuest = user?.isGuest || user?.id?.toString().startsWith('guest-');
   const isOwnProfile = !isGuest && currentUserId && (user?.id === currentUserId);
@@ -18,18 +22,63 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
   const likedReels = userReels.filter((r) => r.isLiked);
   const displayList = activeTab === 'uploads' ? myUploads : likedReels;
 
-  const avatarUrl = user?.avatar_url || user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username || 'user'}`;
+  // Real total likes calculation across uploaded reels
+  const totalLikesOnUploads = myUploads.reduce(
+    (sum, r) => sum + (r.likes_count ?? r.likesCount ?? 0),
+    0
+  );
+
+  const avatarUrl = avatarPreview || user?.avatar_url || user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username || 'user'}`;
+
+  const handleAvatarChange = (e) => {
+    setEditError('');
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Check Max 5MB file size limit
+    if (file.size > 5 * 1024 * 1024) {
+      setEditError('⚠️ Profile picture must be under 5MB!');
+      return;
+    }
+
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+    setEditError('');
     setIsSaving(true);
-    const { data, error } = await updateProfile(user.id, { name, bio });
+
+    let newAvatarUrl = user.avatar_url;
+
+    // 1. Upload avatar if selected (max 5MB)
+    if (avatarFile) {
+      const avatarRes = await uploadAvatar(user.id, avatarFile);
+      if (avatarRes?.error) {
+        setEditError('Failed to upload picture: ' + avatarRes.error.message);
+        setIsSaving(false);
+        return;
+      }
+      if (avatarRes?.url) {
+        newAvatarUrl = avatarRes.url;
+      }
+    }
+
+    // 2. Update profile name & bio
+    const { data, error } = await updateProfile(user.id, {
+      name: name.trim(),
+      bio: bio.trim(),
+      avatar_url: newAvatarUrl
+    });
+
     if (!error && data) {
       user.name = data.name;
       user.bio = data.bio;
+      user.avatar_url = data.avatar_url;
       setIsEditing(false);
-    } else {
-      alert('Error updating profile: ' + (error?.message || 'Failed'));
+    } else if (error) {
+      setEditError('Error updating profile: ' + (error.message || 'Failed'));
     }
     setIsSaving(false);
   };
@@ -83,14 +132,14 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
         />
         <div style={{ textAlign: 'center' }}>
           <div className="profile-name" style={{ fontSize: '20px', fontWeight: '800' }}>
-            {user?.name || user?.username || 'Nepali User'}
+            {user?.name || user?.username || 'User'}
           </div>
           <div className="profile-username" style={{ color: '#94a3b8', fontSize: '13px', marginTop: '2px' }}>
             @{user?.username || 'user'}
           </div>
         </div>
 
-        {/* Real Stats Bar - nullish coalescing so 0 is shown properly */}
+        {/* Real Stats Bar - nullish coalescing */}
         <div className="profile-stats" style={{ display: 'flex', justifyContent: 'center', gap: '32px', margin: '16px 0' }}>
           <div className="stat-box" style={{ textAlign: 'center' }}>
             <span className="stat-value" style={{ display: 'block', fontSize: '18px', fontWeight: '800' }}>
@@ -106,7 +155,7 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
           </div>
           <div className="stat-box" style={{ textAlign: 'center' }}>
             <span className="stat-value" style={{ display: 'block', fontSize: '18px', fontWeight: '800' }}>
-              {user?.likes_count ?? user?.likesCount ?? 0}
+              {totalLikesOnUploads || (user?.likes_count ?? user?.likesCount ?? 0)}
             </span>
             <span className="stat-label" style={{ color: '#64748b', fontSize: '12px' }}>Likes</span>
           </div>
@@ -121,7 +170,7 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
         <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
           {isOwnProfile && (
             <button
-              onClick={() => setIsEditing(true)}
+              onClick={() => { setEditError(''); setIsEditing(true); }}
               style={{
                 padding: '8px 18px',
                 borderRadius: '20px',
@@ -166,12 +215,35 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
       {/* Edit Profile Modal */}
       {isEditing && (
         <div className="modal-overlay" onClick={() => setIsEditing(false)}>
-          <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="bottom-sheet" onClick={(e) => e.stopPropagation()} style={{ borderRadius: '24px 24px 0 0' }}>
             <div className="modal-header">
               <span className="modal-title">Edit Profile</span>
               <button className="close-btn" onClick={() => setIsEditing(false)}><X size={18} /></button>
             </div>
-            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+
+            {editError && (
+              <div style={{ background: 'rgba(225, 29, 72, 0.15)', border: '1px solid rgba(225, 29, 72, 0.4)', color: '#fda4af', padding: '10px 14px', borderRadius: '12px', fontSize: '13px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={16} /> {editError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '6px' }}>
+              {/* Profile Picture Upload Section (Max 5MB) */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => avatarInputRef.current?.click()}>
+                  <img
+                    src={avatarUrl}
+                    alt="Preview"
+                    style={{ width: '76px', height: '76px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #e11d48' }}
+                  />
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#e11d48', borderRadius: '50%', padding: '6px', color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+                    <Camera size={14} />
+                  </div>
+                </div>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>Tap image to change (Max 5MB)</div>
+                <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} />
+              </div>
+
               <div className="form-group">
                 <label className="form-label">Display Name</label>
                 <input
@@ -182,6 +254,7 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
                   placeholder="Your Name"
                 />
               </div>
+
               <div className="form-group">
                 <label className="form-label">Bio</label>
                 <textarea
@@ -191,6 +264,7 @@ export const UserProfile = ({ user, currentUserId, userReels = [], onSelectReel,
                   placeholder="Tell your friends something about yourself..."
                 />
               </div>
+
               <button type="submit" className="submit-btn" disabled={isSaving}>
                 {isSaving ? 'Saving...' : 'Save Profile'}
               </button>

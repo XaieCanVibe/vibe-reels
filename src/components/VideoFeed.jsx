@@ -7,7 +7,8 @@ export const VideoFeed = ({
   onLike,
   onOpenComments,
   onOpenShare,
-  onSelectUser
+  onSelectUser,
+  onVideoChange
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef(null);
@@ -20,6 +21,7 @@ export const VideoFeed = ({
       const index = Math.round(scrollTop / height);
       if (index !== activeIndex && index >= 0 && index < reels.length) {
         setActiveIndex(index);
+        if (onVideoChange && reels[index]) onVideoChange(reels[index].id);
       }
     };
 

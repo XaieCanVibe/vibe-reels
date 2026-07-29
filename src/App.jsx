@@ -18,9 +18,10 @@ import {
   unlikeReel,
   getComments,
   addComment as supabaseAddComment,
-  uploadReel
+  uploadReel,
+  incrementViews
 } from './services/supabaseService';
-import { Compass, MessageSquare, Sparkles, Flame, Search, LogOut, Loader2, WifiOff, Lock, X } from 'lucide-react';
+import { Compass, MessageSquare, Sparkles, Flame, Search, LogOut, Loader2, WifiOff, X } from 'lucide-react';
 
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
@@ -40,18 +41,19 @@ export default function App() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [guestUploadNotice, setGuestUploadNotice] = useState(false);
+  const [showAuthOverlay, setShowAuthOverlay] = useState(false); // guest → login overlay
+
+  const isGuest = !!(authUser?.isGuest || authUser?.id?.toString().startsWith('guest-'));
 
   // ── AUTH LISTENER ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setAuthLoading(false);
-      return;
-    }
+    if (!isSupabaseConfigured) { setAuthLoading(false); return; }
     const unsub = onAuthStateChange(async (event, session) => {
       if (session?.user) {
         setAuthUser(session.user);
         const p = await getProfile(session.user.id);
         setProfile(p);
+        setShowAuthOverlay(false);
       } else if (!authUser?.isGuest) {
         setAuthUser(null);
         setProfile(null);
@@ -59,13 +61,13 @@ export default function App() {
       setAuthLoading(false);
     });
     return unsub;
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── LOAD FEED ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!authUser) return;
     loadFeed();
-  }, [authUser]);
+  }, [authUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadFeed = async () => {
     setFeedLoading(true);
@@ -81,8 +83,17 @@ export default function App() {
   // ── LIKE / UNLIKE ────────────────────────────────────────────────────────────
   const handleLike = async (reelId) => {
     const alreadyLiked = likedIds.has(reelId);
-    // Optimistic UI
     const newLikedIds = new Set(likedIds);
+
+    if (isGuest) {
+      // Show heart animation locally — don't update DB or reel count
+      if (alreadyLiked) newLikedIds.delete(reelId);
+      else newLikedIds.add(reelId);
+      setLikedIds(newLikedIds);
+      return;
+    }
+
+    // Logged-in optimistic update
     setReels((prev) => prev.map((r) =>
       r.id === reelId
         ? { ...r, likes_count: (r.likes_count || 0) + (alreadyLiked ? -1 : 1) }
@@ -116,13 +127,15 @@ export default function App() {
     }
   };
 
+  // ── VIEW COUNTING ─────────────────────────────────────────────────────────────
+  const handleVideoChange = (reelId) => {
+    if (reelId) incrementViews(reelId);
+  };
+
   // ── UPLOAD GUARD ─────────────────────────────────────────────────────────────
   const handleOpenUpload = () => {
-    if (authUser?.isGuest || authUser?.id?.toString().startsWith('guest-')) {
-      setGuestUploadNotice(true);
-    } else {
-      setIsUploadOpen(true);
-    }
+    if (isGuest) setGuestUploadNotice(true);
+    else setIsUploadOpen(true);
   };
 
   const handleUploadSuccess = async (file, metadata) => {
@@ -149,6 +162,7 @@ export default function App() {
     setProfile(null);
     setReels([]);
     setLikedIds(new Set());
+    setShowAuthOverlay(false);
   };
 
   // ── NOT CONFIGURED ───────────────────────────────────────────────────────────
@@ -161,8 +175,6 @@ export default function App() {
             Setup Required
           </div>
           <div style={{ color: '#94a3b8', fontSize: '14px', lineHeight: 1.6 }}>
-            To use real accounts, videos, and data you need to set up your free Supabase backend.
-            <br /><br />
             Add your Supabase URL and anon key to <code style={{ color: '#e11d48' }}>.env</code> file.
           </div>
         </div>
@@ -231,6 +243,7 @@ export default function App() {
             onOpenComments={handleOpenComments}
             onOpenShare={(reel) => setActiveShareReel(reel)}
             onSelectUser={handleSelectUser}
+            onVideoChange={handleVideoChange}
           />
         )
       )}
@@ -253,10 +266,10 @@ export default function App() {
           <div style={{ fontSize: '16px', fontWeight: '800', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Sparkles color="#e11d48" size={20} /> All Reels
           </div>
-          <div className="profile-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
             {reelsWithLiked.map((reel) => (
-              <div key={reel.id} className="grid-item" onClick={() => setActiveTab('home')} style={{ aspectRatio: '9/16', background: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer' }}>
-                <video src={reel.video_url} className="grid-thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
+              <div key={reel.id} onClick={() => setActiveTab('home')} style={{ aspectRatio: '9/16', background: '#000', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer' }}>
+                <video src={reel.video_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
               </div>
             ))}
           </div>
@@ -292,26 +305,25 @@ export default function App() {
         onOpenUpload={handleOpenUpload}
       />
 
-      {/* Modals */}
+      {/* ── Modals ── */}
       {activeCommentReel && (
         <CommentsModal
           reel={activeCommentReel}
           comments={reelComments}
+          isGuest={isGuest}
           onClose={() => setActiveCommentReel(null)}
           onAddComment={handleAddComment}
+          onOpenAuth={() => { setActiveCommentReel(null); setShowAuthOverlay(true); }}
         />
       )}
       {activeShareReel && (
         <ShareModal reel={activeShareReel} onClose={() => setActiveShareReel(null)} />
       )}
       {isUploadOpen && (
-        <UploadModal
-          onClose={() => setIsUploadOpen(false)}
-          onUploadSuccess={handleUploadSuccess}
-        />
+        <UploadModal onClose={() => setIsUploadOpen(false)} onUploadSuccess={handleUploadSuccess} />
       )}
 
-      {/* Guest Upload Restriction Modal */}
+      {/* Guest Upload Restriction */}
       {guestUploadNotice && (
         <div className="modal-overlay" onClick={() => setGuestUploadNotice(false)}>
           <div className="bottom-sheet" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', padding: '24px', maxWidth: '380px', borderRadius: '24px' }}>
@@ -320,23 +332,37 @@ export default function App() {
               Guests Cannot Upload Videos
             </div>
             <div style={{ color: '#94a3b8', fontSize: '13px', lineHeight: 1.5, marginBottom: '20px' }}>
-              Guest accounts can watch, like, and comment on reels, but uploading is reserved for registered accounts. Please log in or create a free account to upload reels!
+              Guest accounts can watch, like, and read comments, but uploading is reserved for registered accounts!
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                onClick={() => setGuestUploadNotice(false)}
-                style={{ flex: 1, background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: '600', cursor: 'pointer' }}
-              >
+              <button onClick={() => setGuestUploadNotice(false)} style={{ flex: 1, background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: '600', cursor: 'pointer' }}>
                 Close
               </button>
               <button
-                onClick={() => { setGuestUploadNotice(false); handleSignOut(); }}
+                onClick={() => { setGuestUploadNotice(false); setShowAuthOverlay(true); }}
                 style={{ flex: 1, background: 'linear-gradient(135deg, #e11d48, #be123c)', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}
               >
                 🔑 Log In / Register
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Guest → Full Auth Overlay */}
+      {showAuthOverlay && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#09090b' }}>
+          <button
+            onClick={() => setShowAuthOverlay(false)}
+            style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', padding: '8px', borderRadius: '10px', cursor: 'pointer', zIndex: 10000 }}
+          >
+            <X size={20} />
+          </button>
+          <AuthScreen onAuthSuccess={(user) => {
+            setAuthUser(user);
+            if (!user.isGuest) setProfile(null); // will be fetched by auth listener
+            setShowAuthOverlay(false);
+          }} />
         </div>
       )}
     </div>

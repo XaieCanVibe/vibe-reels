@@ -7,9 +7,7 @@ export const signUp = async (email, password, username, name) => {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      data: { username, name }
-    }
+    options: { data: { username, name } }
   });
   return { data, error };
 };
@@ -20,30 +18,9 @@ export const signIn = async (email, password) => {
   return { data, error };
 };
 
-export const signInAnonymously = async () => {
-  if (!isSupabaseConfigured) return { error: { message: 'Supabase not configured' } };
-  // Supabase anonymous sign in or local guest profile
-  const guestUser = {
-    id: 'guest-' + Math.random().toString(36).substr(2, 9),
-    email: 'guest@vibereels.nepal',
-    user_metadata: {
-      username: 'guest_' + Math.floor(1000 + Math.random() * 9000),
-      name: 'Nepali Guest 🇳🇵'
-    },
-    isGuest: true
-  };
-  return { user: guestUser, error: null };
-};
-
 export const signOut = async () => {
   if (!isSupabaseConfigured) return;
   await supabase.auth.signOut();
-};
-
-export const getCurrentSession = async () => {
-  if (!isSupabaseConfigured) return null;
-  const { data } = await supabase.auth.getSession();
-  return data?.session;
 };
 
 export const onAuthStateChange = (callback) => {
@@ -55,17 +32,7 @@ export const onAuthStateChange = (callback) => {
 // ─── PROFILES ────────────────────────────────────────────────────────────────
 
 export const getProfile = async (userId) => {
-  if (!isSupabaseConfigured || userId?.startsWith('guest-')) {
-    return {
-      id: userId || 'guest',
-      username: 'guest_' + Math.floor(1000 + Math.random() * 9000),
-      name: 'Nepali Guest 🇳🇵',
-      avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=guest`,
-      followers_count: 0,
-      following_count: 0,
-      likes_count: 0
-    };
-  }
+  if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) return null;
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -75,7 +42,7 @@ export const getProfile = async (userId) => {
 };
 
 export const updateProfile = async (userId, updates) => {
-  if (!isSupabaseConfigured || userId?.startsWith('guest-')) return null;
+  if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) return { data: null, error: null };
   const { data, error } = await supabase
     .from('profiles')
     .update(updates)
@@ -85,29 +52,36 @@ export const updateProfile = async (userId, updates) => {
   return { data, error };
 };
 
+// Upload profile picture (Max 5MB enforced on client side too)
+export const uploadAvatar = async (userId, file) => {
+  if (!isSupabaseConfigured || !userId) return { url: null, error: { message: 'Not configured' } };
+  const ext = file.name.split('.').pop();
+  const fileName = `avatars/${userId}_${Date.now()}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(fileName, file, { upsert: true });
+  if (uploadError) return { url: null, error: uploadError };
+  const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+  return { url: publicUrl, error: null };
+};
+
 // ─── REELS ───────────────────────────────────────────────────────────────────
 
 export const getFeedReels = async () => {
   if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from('reels')
-    .select(`
-      *,
-      profiles(id, username, name, avatar_url)
-    `)
+    .select(`*, profiles(id, username, name, avatar_url, bio, is_verified)`)
     .order('created_at', { ascending: false })
-    .limit(30);
+    .limit(50);
   return error ? [] : data;
 };
 
 export const getUserReels = async (userId) => {
-  if (!isSupabaseConfigured) return [];
+  if (!isSupabaseConfigured || !userId) return [];
   const { data, error } = await supabase
     .from('reels')
-    .select(`
-      *,
-      profiles(id, username, name, avatar_url)
-    `)
+    .select(`*, profiles(id, username, name, avatar_url, bio, is_verified)`)
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   return error ? [] : data;
@@ -115,35 +89,36 @@ export const getUserReels = async (userId) => {
 
 export const uploadReel = async (userId, file, metadata) => {
   if (!isSupabaseConfigured) return { error: { message: 'Supabase not configured' } };
-
-  // Upload video to storage
   const ext = file.name.split('.').pop();
   const fileName = `${userId}/${Date.now()}.${ext}`;
-  const { error: uploadError } = await supabase.storage
-    .from('reels')
-    .upload(fileName, file);
-
+  const { error: uploadError } = await supabase.storage.from('reels').upload(fileName, file);
   if (uploadError) return { error: uploadError };
-
   const { data: { publicUrl } } = supabase.storage.from('reels').getPublicUrl(fileName);
-
-  // Insert reel record in DB
   const { data, error } = await supabase
     .from('reels')
     .insert({
-      user_id: userId.startsWith('guest-') ? '00000000-0000-0000-0000-000000000000' : userId,
+      user_id: userId,
       video_url: publicUrl,
       caption: metadata.caption || '',
       hashtags: metadata.hashtags || [],
       song: metadata.song || '🎵 Original Sound'
     })
-    .select(`*, profiles(id, username, name, avatar_url)`)
+    .select(`*, profiles(id, username, name, avatar_url, bio, is_verified)`)
     .single();
-
   return { data, error };
 };
 
-// ─── LIKES & COMMENTS ────────────────────────────────────────────────────────
+// Increment view count — called whenever a reel becomes active (works for guests too)
+export const incrementViews = async (reelId) => {
+  if (!isSupabaseConfigured || !reelId) return;
+  try {
+    await supabase.rpc('increment_views', { reel_id: reelId });
+  } catch (_) {
+    // Silently fail — views are non-critical
+  }
+};
+
+// ─── LIKES ───────────────────────────────────────────────────────────────────
 
 export const getLikedReelIds = async (userId) => {
   if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) return [];
@@ -155,14 +130,21 @@ export const getLikedReelIds = async (userId) => {
 };
 
 export const likeReel = async (userId, reelId) => {
-  if (!isSupabaseConfigured || userId?.startsWith('guest-')) return;
-  await supabase.from('likes').insert({ user_id: userId, reel_id: reelId });
+  if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) return;
+  const { error } = await supabase.from('likes').insert({ user_id: userId, reel_id: reelId });
+  if (!error) {
+    // Increment likes_count on reel
+    await supabase.rpc('increment_likes', { reel_id: reelId });
+  }
 };
 
 export const unlikeReel = async (userId, reelId) => {
-  if (!isSupabaseConfigured || userId?.startsWith('guest-')) return;
+  if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) return;
   await supabase.from('likes').delete().match({ user_id: userId, reel_id: reelId });
+  await supabase.rpc('decrement_likes', { reel_id: reelId });
 };
+
+// ─── COMMENTS ────────────────────────────────────────────────────────────────
 
 export const getComments = async (reelId) => {
   if (!isSupabaseConfigured) return [];
@@ -175,22 +157,16 @@ export const getComments = async (reelId) => {
 };
 
 export const addComment = async (userId, reelId, text) => {
-  if (!isSupabaseConfigured) return { error: { message: 'Supabase not configured' } };
-  if (userId?.startsWith('guest-')) {
-    return {
-      data: {
-        id: 'guest-comment-' + Date.now(),
-        text,
-        created_at: new Date().toISOString(),
-        profiles: { username: 'guest', avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=guest` }
-      },
-      error: null
-    };
+  if (!isSupabaseConfigured || !userId || userId.startsWith('guest-')) {
+    return { error: { message: 'Guests cannot comment. Please log in!' } };
   }
   const { data, error } = await supabase
     .from('comments')
     .insert({ user_id: userId, reel_id: reelId, text })
     .select(`*, profiles(username, avatar_url)`)
     .single();
+  if (!error) {
+    await supabase.rpc('increment_comments', { reel_id: reelId });
+  }
   return { data, error };
 };

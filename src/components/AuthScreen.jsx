@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { signIn, signUp, signInAnonymously } from '../services/supabaseService';
+import { signIn, signUp } from '../services/supabaseService';
 import { Eye, EyeOff, User, Lock, Mail, Loader2, Sparkles, X, ArrowRight } from 'lucide-react';
 
 export const AuthScreen = ({ onAuthSuccess }) => {
